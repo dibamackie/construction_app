@@ -219,6 +219,49 @@ function App() {
     root.dataset.theme = state.settings.themeMode;
   }, [state.settings.themeMode]);
 
+  useEffect(() => {
+    const quoteIds = state.quotes.map((quote) => quote.id).join(',');
+    if (!quoteIds) return undefined;
+
+    async function syncApprovals() {
+      try {
+        const response = await fetch(`http://localhost:5000/api/quote-approvals?quoteIds=${encodeURIComponent(quoteIds)}`);
+        if (!response.ok) return;
+        const approvals = await response.json();
+        const approvedByQuoteId = new Map(
+          approvals
+            .filter((approval) => approval.status === 'approved' && approval.quoteId)
+            .map((approval) => [approval.quoteId, approval]),
+        );
+
+        if (approvedByQuoteId.size === 0) return;
+
+        setState((current) => {
+          let changed = false;
+          const quotes = current.quotes.map((quote) => {
+            const approval = approvedByQuoteId.get(quote.id);
+            if (!approval || quote.status !== 'open') return quote;
+            changed = true;
+            return touch({
+              ...quote,
+              status: 'approved',
+              quoteNumber: formatQuoteNumber(quote.sequence, 'approved', quote.invoicePart),
+              customerApprovedAt: approval.approvedAt,
+            });
+          });
+
+          return changed ? { ...current, quotes } : current;
+        });
+      } catch {
+        // Approval sync is best-effort while the local API is offline.
+      }
+    }
+
+    syncApprovals();
+    const interval = window.setInterval(syncApprovals, 15000);
+    return () => window.clearInterval(interval);
+  }, [state.quotes]);
+
   const selectedQuote = state.quotes.find((quote) => quote.id === selectedQuoteId) || state.quotes[0];
   const selectedCustomer = state.customers.find((customer) => customer.id === selectedCustomerId) || state.customers[0];
   const selectedContractor = state.contractors.find((contractor) => contractor.id === selectedContractorId) || state.contractors[0];
@@ -880,6 +923,7 @@ function EmailQuotePanel({ quote, customer, totals, settings }) {
           email: customer.email,
         },
         quote: {
+          id: quote.id,
           quoteNumber: quote.quoteNumber,
           title: quote.title,
           projectAddress: quote.projectAddress,
@@ -887,6 +931,7 @@ function EmailQuotePanel({ quote, customer, totals, settings }) {
             name: item.name,
             quantity: item.quantity,
             unit: item.unit,
+            pricePerUnit: item.pricePerUnit,
             total: calculateQuoteItem(item).total,
           })),
         },

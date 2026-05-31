@@ -1,3 +1,7 @@
+const fs = require('fs');
+const path = require('path');
+const { randomUUID } = require('crypto');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -12,6 +16,9 @@ app.use(cors());
 app.use(express.json());
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
+const PORT = process.env.PORT || 5000;
+const PUBLIC_BASE_URL = process.env.BACKEND_PUBLIC_URL || `http://localhost:${PORT}`;
+const APPROVAL_STORE_PATH = path.join(__dirname, 'data', 'quote-approvals.json');
 
 if (process.env.MONGODB_URI) {
   mongoose.connect(process.env.MONGODB_URI)
@@ -110,20 +117,56 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
-function buildQuoteEmailHtml(payload) {
+function readApprovalStore() {
+  try {
+    if (!fs.existsSync(APPROVAL_STORE_PATH)) return [];
+    return JSON.parse(fs.readFileSync(APPROVAL_STORE_PATH, 'utf8'));
+  } catch (error) {
+    console.error('Unable to read approval store:', error);
+    return [];
+  }
+}
+
+function writeApprovalStore(records) {
+  fs.mkdirSync(path.dirname(APPROVAL_STORE_PATH), { recursive: true });
+  fs.writeFileSync(APPROVAL_STORE_PATH, JSON.stringify(records, null, 2));
+}
+
+function createApprovalRecord(payload) {
+  const quote = payload.quote || {};
+  const customer = payload.customer || {};
+  const now = new Date().toISOString();
+  const records = readApprovalStore();
+  const record = {
+    token: randomUUID(),
+    quoteId: quote.id,
+    quoteNumber: quote.quoteNumber,
+    quoteTitle: quote.title,
+    customerName: customer.name,
+    customerEmail: customer.email,
+    total: payload.totals?.total,
+    status: 'pending',
+    sentAt: now,
+    approvedAt: '',
+  };
+
+  writeApprovalStore([record, ...records]);
+  return record;
+}
+
+function buildQuoteEmailHtml(payload, approvalUrl) {
   const quote = payload.quote || {};
   const customer = payload.customer || {};
   const totals = payload.totals || {};
-  const approvalTo = payload.approvalTo || payload.replyTo || 'owner@buildquote.local';
-  const approvalSubject = encodeURIComponent(`Approved quote ${quote.quoteNumber || quote.title || ''}`.trim());
   const changesSubject = encodeURIComponent(`Changes requested for quote ${quote.quoteNumber || quote.title || ''}`.trim());
-  const approveBody = encodeURIComponent(`I approve quote ${quote.quoteNumber || quote.title || ''} for ${money(totals.total)}.`);
+  const replyTo = payload.replyTo || 'owner@buildquote.local';
   const changesBody = encodeURIComponent(`I would like to request changes for quote ${quote.quoteNumber || quote.title || ''}.`);
   const itemRows = (quote.items || []).map((item) => `
     <tr>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(item.name || 'Line item')}</td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(item.quantity || 0)}</td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(item.unit || '')}</td>
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${money(item.pricePerUnit)}</td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${money(item.total)}</td>
     </tr>
   `).join('');
@@ -144,6 +187,7 @@ function buildQuoteEmailHtml(payload) {
             <th style="padding:10px;text-align:left;border-bottom:2px solid #d9dee7;">Item</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #d9dee7;">Qty</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #d9dee7;">Unit</th>
+            <th style="padding:10px;text-align:right;border-bottom:2px solid #d9dee7;">Unit price</th>
             <th style="padding:10px;text-align:right;border-bottom:2px solid #d9dee7;">Total</th>
           </tr>
         </thead>
@@ -156,10 +200,10 @@ function buildQuoteEmailHtml(payload) {
         <strong style="font-size:20px;">Grand total: ${money(totals.total)}</strong>
       </div>
       <div style="margin:28px 0;">
-        <a href="mailto:${encodeURIComponent(approvalTo)}?subject=${approvalSubject}&body=${approveBody}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700;margin-right:10px;">Approve quote</a>
-        <a href="mailto:${encodeURIComponent(approvalTo)}?subject=${changesSubject}&body=${changesBody}" style="display:inline-block;background:#f3f4f6;color:#172033;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Request changes</a>
+        <a href="${escapeHtml(approvalUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700;margin-right:10px;">Approve quote</a>
+        <a href="mailto:${encodeURIComponent(replyTo)}?subject=${changesSubject}&body=${changesBody}" style="display:inline-block;background:#f3f4f6;color:#172033;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Request changes</a>
       </div>
-      <p style="color:#667085;font-size:13px;">Approval uses a reply email for now. A signed customer portal link can replace this later.</p>
+      <p style="color:#667085;font-size:13px;">Clicking Approve quote records approval for this quote and syncs it back to BuildQuote.</p>
     </div>
   `;
 }
@@ -173,14 +217,17 @@ app.post('/api/quote-emails/send', async (req, res) => {
       return res.status(400).json({ error: 'Customer email is required.' });
     }
 
+    const approval = createApprovalRecord(payload);
+    const approvalUrl = `${PUBLIC_BASE_URL}/api/quote-approvals/${approval.token}/approve`;
     const subject = payload.subject || `Quote ${payload.quote?.quoteNumber || ''}: ${payload.quote?.title || 'Project quote'}`;
-    const html = buildQuoteEmailHtml(payload);
+    const html = buildQuoteEmailHtml(payload, approvalUrl);
 
     if (!process.env.RESEND_API_KEY) {
       console.log('Mock quote email:', { to: customerEmail, subject, quote: payload.quote?.quoteNumber });
       return res.json({
         message: 'Mock email prepared. Configure RESEND_API_KEY to send through Resend.',
         previewHtml: html,
+        approvalUrl,
       });
     }
 
@@ -196,11 +243,48 @@ app.post('/api/quote-emails/send', async (req, res) => {
       return res.status(400).json({ error });
     }
 
-    res.json({ message: 'Quote email sent.', data });
+    res.json({ message: 'Quote email sent.', data, approvalUrl });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-const PORT = 5000;
+app.get('/api/quote-approvals', (req, res) => {
+  const quoteIds = String(req.query.quoteIds || '').split(',').filter(Boolean);
+  const records = readApprovalStore();
+  const filtered = quoteIds.length ? records.filter((record) => quoteIds.includes(record.quoteId)) : records;
+  res.json(filtered);
+});
+
+app.get('/api/quote-approvals/:token/approve', (req, res) => {
+  const records = readApprovalStore();
+  const recordIndex = records.findIndex((record) => record.token === req.params.token);
+
+  if (recordIndex === -1) {
+    return res.status(404).send(`
+      <main style="font-family:Arial,sans-serif;max-width:640px;margin:80px auto;color:#172033;">
+        <h1>Approval link not found</h1>
+        <p>This quote approval link is invalid or no longer available.</p>
+      </main>
+    `);
+  }
+
+  const approvedAt = records[recordIndex].approvedAt || new Date().toISOString();
+  records[recordIndex] = {
+    ...records[recordIndex],
+    status: 'approved',
+    approvedAt,
+  };
+  writeApprovalStore(records);
+
+  res.send(`
+    <main style="font-family:Arial,sans-serif;max-width:680px;margin:80px auto;color:#172033;line-height:1.5;">
+      <div style="display:inline-block;background:#d1fae5;color:#047857;padding:8px 12px;border-radius:999px;font-weight:700;">Approved</div>
+      <h1 style="margin:18px 0 8px;">Quote approved</h1>
+      <p>Thank you. Quote ${escapeHtml(records[recordIndex].quoteNumber || records[recordIndex].quoteTitle || '')} has been approved and the contractor's BuildQuote workspace will sync this approval.</p>
+      <p style="color:#667085;">Approved at ${escapeHtml(new Date(approvedAt).toLocaleString())}</p>
+    </main>
+  `);
+});
+
 app.listen(PORT, () => console.log(`Backend server running on port ${PORT}`));
