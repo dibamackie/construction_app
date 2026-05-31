@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Mail, Send, Check } from 'lucide-react';
+import { Plus, Trash2, Send } from 'lucide-react';
 import './Quote.css';
 
 const TAX_RATES = {
@@ -32,16 +32,6 @@ export default function Quote() {
       .then(data => setCustomers(data))
       .catch(console.error);
   }, []);
-
-  // Update Project Address & Tax when Customer selected
-  useEffect(() => {
-    if (selectedCustomerId && selectedCustomerId !== 'new') {
-      const c = customers.find(x => x._id === selectedCustomerId);
-      if (c) {
-        setProjectAddress(c.address || '');
-      }
-    }
-  }, [selectedCustomerId, customers]);
 
   const addRoom = () => {
     setRooms([...rooms, { id: Date.now().toString(), roomName: 'New Room', items: [] }]);
@@ -206,7 +196,11 @@ export default function Quote() {
               <label>Select Customer</label>
               <select 
                 value={selectedCustomerId} 
-                onChange={e => setSelectedCustomerId(e.target.value)}
+                onChange={e => {
+                  setSelectedCustomerId(e.target.value);
+                  const c = customers.find(x => x._id === e.target.value);
+                  if (c) setProjectAddress(c.address || '');
+                }}
                 className="input-field"
               >
                 <option value="new">+ Create New Customer</option>
