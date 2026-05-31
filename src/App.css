@@ -545,7 +545,8 @@
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 40px;
   padding: 9px 10px;
@@ -557,14 +558,23 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid var(--accent-soft);
   border-color: var(--accent);
 }
 
 input:disabled,
-select:disabled {
+select:disabled,
+textarea:disabled,
+button:disabled {
   opacity: 0.68;
+  cursor: not-allowed;
+}
+
+textarea {
+  min-height: 112px;
+  resize: vertical;
 }
 
 .address-search-field {
@@ -639,6 +649,46 @@ select:disabled {
   background: var(--warning-bg);
   border: 1px solid var(--warning-border);
   border-radius: 8px;
+}
+
+.email-quote-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  gap: 18px;
+}
+
+.email-quote-copy {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.email-quote-copy p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.email-recipient {
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.email-recipient span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.email-recipient strong {
+  overflow-wrap: anywhere;
+}
+
+.email-quote-form {
+  display: grid;
+  gap: 12px;
 }
 
 .tool-strip {
@@ -911,7 +961,8 @@ select:disabled {
 
   .form-grid,
   .doc-grid,
-  .task-fields {
+  .task-fields,
+  .email-quote-grid {
     grid-template-columns: 1fr;
   }
 }

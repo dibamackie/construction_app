@@ -14,10 +14,12 @@ import {
   Lock,
   LogIn,
   MapPin,
+  Mail,
   Package,
   Plus,
   Printer,
   Search,
+  Send,
   Save,
   Settings,
   ShieldCheck,
@@ -770,6 +772,8 @@ function QuotesPage(props) {
           </div>
         </Panel>
 
+        <EmailQuotePanel key={selectedQuote.id} quote={selectedQuote} customer={customer} totals={totals} settings={state.settings} />
+
         <Panel title="Customer Quote Preview">
           <div className="print-document">
             <div>
@@ -845,6 +849,101 @@ function SchedulePage({ state, setSelectedQuoteId, setActivePage, updateTask, ge
           })}
         </div>
       )}
+    </Panel>
+  );
+}
+
+function EmailQuotePanel({ quote, customer, totals, settings }) {
+  const [subject, setSubject] = useState(`Quote ${quote.quoteNumber}: ${quote.title || 'Project quote'}`);
+  const [message, setMessage] = useState('Please review the quote details below. You can approve it directly from this email.');
+  const [replyTo, setReplyTo] = useState('owner@buildquote.local');
+  const [status, setStatus] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
+  async function sendQuoteEmail() {
+    if (!customer?.email) {
+      setStatus('Add a customer email before sending.');
+      return;
+    }
+
+    setIsSending(true);
+    setStatus('Sending quote email...');
+
+    try {
+      const payload = {
+        subject,
+        message,
+        replyTo,
+        approvalTo: replyTo,
+        customer: {
+          name: displayCustomer(customer),
+          email: customer.email,
+        },
+        quote: {
+          quoteNumber: quote.quoteNumber,
+          title: quote.title,
+          projectAddress: quote.projectAddress,
+          items: quote.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            total: calculateQuoteItem(item).total,
+          })),
+        },
+        totals,
+        company: {
+          name: settings.companyName,
+          type: settings.companyType,
+        },
+      };
+
+      const response = await fetch('http://localhost:5000/api/quote-emails/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error?.message || result.error || 'Unable to send quote email.');
+      }
+
+      setStatus(result.message || 'Quote email sent.');
+    } catch (error) {
+      setStatus(`${error.message} Make sure the backend server is running on port 5000.`);
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  return (
+    <Panel title="Email Quote For Approval" action={<Mail size={18} />}>
+      <div className="email-quote-grid">
+        <div className="email-quote-copy">
+          <p>
+            Send the quote details to the customer through Resend. The email includes approval and
+            change-request buttons that open a prefilled reply.
+          </p>
+          <div className="email-recipient">
+            <span>To</span>
+            <strong>{customer?.email || 'No customer email'}</strong>
+          </div>
+        </div>
+        <div className="email-quote-form">
+          <Field label="subject" value={subject} onChange={setSubject} />
+          <Field label="approval replies to" type="email" value={replyTo} onChange={setReplyTo} />
+          <label className="field">
+            message
+            <textarea value={message} onChange={(event) => setMessage(event.target.value)} />
+          </label>
+          <div className="button-row">
+            <button className="primary-button" onClick={sendQuoteEmail} disabled={isSending || !customer?.email}>
+              <Send size={16} /> {isSending ? 'Sending...' : 'Send quote'}
+            </button>
+            {status && <span className="notice">{status}</span>}
+          </div>
+        </div>
+      </div>
     </Panel>
   );
 }
