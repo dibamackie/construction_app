@@ -13,9 +13,11 @@ import {
   Home,
   Lock,
   LogIn,
+  MapPin,
   Package,
   Plus,
   Printer,
+  Search,
   Save,
   Settings,
   ShieldCheck,
@@ -74,6 +76,23 @@ const companyTypes = [
   'Cleaning/post-construction cleaning',
 ];
 
+const provinceAliases = {
+  Alberta: 'AB',
+  'British Columbia': 'BC',
+  Manitoba: 'MB',
+  'New Brunswick': 'NB',
+  'Newfoundland and Labrador': 'NL',
+  'Northwest Territories': 'NT',
+  'Nova Scotia': 'NS',
+  Nunavut: 'NU',
+  Ontario: 'ON',
+  'Prince Edward Island': 'PE',
+  Quebec: 'QC',
+  Québec: 'QC',
+  Saskatchewan: 'SK',
+  Yukon: 'YT',
+};
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -91,9 +110,29 @@ function customerTaxRate(customer) {
   return TAX_RATES[customer?.province] ?? TAX_RATES.ON;
 }
 
+function normalizeProvince(value) {
+  if (!value) return '';
+  const trimmed = String(value).trim();
+  const upper = trimmed.toUpperCase();
+  return TAX_RATES[upper] !== undefined ? upper : provinceAliases[trimmed] || '';
+}
+
 function taxRateForQuote(quote, customers) {
   const customer = customers.find((item) => item.id === quote.customerId);
   return customer ? customerTaxRate(customer) : quote.taxRate;
+}
+
+function parseAddressSuggestion(result) {
+  const address = result.address || {};
+  const street = [address.house_number, address.road || address.pedestrian || address.footway].filter(Boolean).join(' ');
+  const city = address.city || address.town || address.village || address.municipality || address.county || '';
+
+  return {
+    address: street || result.name || '',
+    city,
+    province: normalizeProvince(address.state_code || address.state),
+    postalCode: address.postcode || '',
+  };
 }
 
 function makeCustomer() {
@@ -900,6 +939,7 @@ function ContractorsPage({ state, selectedContractor, setSelectedContractorId, u
 
 function CustomersPage({ state, selectedCustomer, setSelectedCustomerId, updateCollection, setState, deleteRecord, createQuote, setSelectedQuoteId, setActivePage }) {
   const relatedQuotes = state.quotes.filter((quote) => quote.customerId === selectedCustomer?.id);
+  const updateCustomer = (patch) => updateCollection('customers', selectedCustomer.id, patch);
 
   return (
     <CrudPage
@@ -911,9 +951,21 @@ function CustomersPage({ state, selectedCustomer, setSelectedCustomerId, updateC
       detail={selectedCustomer && (
         <>
           <div className="form-grid">
-            {['customerName', 'companyName', 'phone', 'email', 'address', 'unitNumber', 'city', 'province', 'postalCode', 'notes'].map((key) => (
-              <Field key={key} label={key.replace(/([A-Z])/g, ' $1')} value={selectedCustomer[key]} onChange={(value) => updateCollection('customers', selectedCustomer.id, { [key]: value })} />
-            ))}
+            <Field label="customer name" value={selectedCustomer.customerName} onChange={(value) => updateCustomer({ customerName: value })} />
+            <Field label="company name" value={selectedCustomer.companyName} onChange={(value) => updateCustomer({ companyName: value })} />
+            <Field label="phone" value={selectedCustomer.phone} onChange={(value) => updateCustomer({ phone: value })} />
+            <Field label="email" type="email" value={selectedCustomer.email} onChange={(value) => updateCustomer({ email: value })} />
+            <AddressSearch key={selectedCustomer.id} value={customerAddress(selectedCustomer)} onSelect={(patch) => updateCustomer(patch)} />
+            <Field label="unit number" value={selectedCustomer.unitNumber} onChange={(value) => updateCustomer({ unitNumber: value })} />
+            <Field label="city" value={selectedCustomer.city} onChange={(value) => updateCustomer({ city: value })} />
+            <label className="field">
+              province
+              <select value={selectedCustomer.province} onChange={(event) => updateCustomer({ province: event.target.value })}>
+                {Object.keys(TAX_RATES).map((province) => <option key={province} value={province}>{province}</option>)}
+              </select>
+            </label>
+            <Field label="postal code" value={selectedCustomer.postalCode} onChange={(value) => updateCustomer({ postalCode: value })} />
+            <Field label="notes" value={selectedCustomer.notes} onChange={(value) => updateCustomer({ notes: value })} />
           </div>
           <div className="section-divider">
             <div className="button-row">
@@ -1045,6 +1097,97 @@ function Field({ label, value, onChange, type = 'text', disabled = false }) {
       {label}
       <input type={type} value={value || ''} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
     </label>
+  );
+}
+
+function AddressSearch({ value, onSelect }) {
+  const [query, setQuery] = useState(value || '');
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [status, setStatus] = useState('');
+  const canSearch = query.trim().length >= 4;
+
+  useEffect(() => {
+    const trimmed = query.trim();
+
+    if (trimmed.length < 4) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      setStatus('');
+
+      try {
+        const params = new URLSearchParams({
+          q: trimmed,
+          format: 'jsonv2',
+          addressdetails: '1',
+          limit: '5',
+          countrycodes: 'ca',
+        });
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+
+        if (!response.ok) throw new Error('Address search failed');
+
+        const results = await response.json();
+        setSuggestions(results);
+        setStatus(results.length ? '' : 'No address suggestions found');
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          setSuggestions([]);
+          setStatus('Address suggestions are unavailable right now');
+        }
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [query]);
+
+  function chooseSuggestion(result) {
+    const patch = parseAddressSuggestion(result);
+    onSelect(patch);
+    setQuery(customerAddress(patch) || result.display_name || '');
+    setSuggestions([]);
+    setStatus('');
+  }
+
+  return (
+    <div className="field address-search-field">
+      <span>address search</span>
+      <div className="address-input-wrap">
+        <Search size={16} />
+        <input
+          value={query}
+          placeholder="Search customer address"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            onSelect({ address: event.target.value });
+          }}
+        />
+      </div>
+      {canSearch && (isSearching || status || suggestions.length > 0) && (
+        <div className="address-suggestions">
+          {isSearching && <div className="address-status">Searching addresses...</div>}
+          {!isSearching && status && <div className="address-status">{status}</div>}
+          {!isSearching && suggestions.map((result) => (
+            <button key={result.place_id} type="button" onClick={() => chooseSuggestion(result)}>
+              <MapPin size={16} />
+              <span>{result.display_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
