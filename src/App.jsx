@@ -82,6 +82,20 @@ function displayCustomer(customer) {
   return customer?.customerName || customer?.companyName || 'Customer';
 }
 
+function customerAddress(customer) {
+  if (!customer) return '';
+  return [customer.address, customer.unitNumber, customer.city, customer.province, customer.postalCode].filter(Boolean).join(', ');
+}
+
+function customerTaxRate(customer) {
+  return TAX_RATES[customer?.province] ?? TAX_RATES.ON;
+}
+
+function taxRateForQuote(quote, customers) {
+  const customer = customers.find((item) => item.id === quote.customerId);
+  return customer ? customerTaxRate(customer) : quote.taxRate;
+}
+
 function makeCustomer() {
   return {
     id: crypto.randomUUID(),
@@ -123,13 +137,13 @@ function makePriceItem() {
   return { id: crypto.randomUUID(), name: '', unit: 'each', pricePerUnit: 0, duration: 1, category: 'Labor' };
 }
 
-function makeQuote(sequence, customerId = '') {
+function makeQuote(sequence, customerId = '', title = '') {
   return {
     id: crypto.randomUUID(),
     sequence,
     quoteNumber: formatQuoteNumber(sequence, 'open'),
     status: 'open',
-    title: '',
+    title,
     customerId,
     projectAddress: '',
     quoteDate: today(),
@@ -171,9 +185,9 @@ function App() {
 
   const quoteTotals = useMemo(() => {
     const map = new Map();
-    state.quotes.forEach((quote) => map.set(quote.id, calculateQuoteTotals(quote.items, quote.taxRate)));
+    state.quotes.forEach((quote) => map.set(quote.id, calculateQuoteTotals(quote.items, taxRateForQuote(quote, state.customers))));
     return map;
-  }, [state.quotes]);
+  }, [state.customers, state.quotes]);
 
   function flash(message) {
     setNotice(message);
@@ -196,7 +210,17 @@ function App() {
   }
 
   function createQuote(customerId = '') {
-    const quote = touch(makeQuote(state.sequence.nextQuote, customerId));
+    const customer = state.customers.find((item) => item.id === customerId);
+    const suggestedName = customer ? `${displayCustomer(customer)} quote` : 'New project quote';
+    const title = window.prompt('Name this quote', suggestedName);
+
+    if (title === null) return;
+
+    const quote = touch({
+      ...makeQuote(state.sequence.nextQuote, customerId, title.trim() || suggestedName),
+      projectAddress: customerAddress(customer),
+      taxRate: customer ? customerTaxRate(customer) : TAX_RATES.ON,
+    });
     setState((current) => ({
       ...current,
       sequence: { ...current.sequence, nextQuote: current.sequence.nextQuote + 1 },
@@ -594,6 +618,7 @@ function QuotesPage(props) {
   const locked = ['completed', 'invoiced'].includes(selectedQuote.status);
   const totals = quoteTotals.get(selectedQuote.id);
   const customer = state.customers.find((item) => item.id === selectedQuote.customerId);
+  const activeTaxRate = taxRateForQuote(selectedQuote, state.customers);
 
   return (
     <section className="quotes-layout">
@@ -632,8 +657,8 @@ function QuotesPage(props) {
                 const nextCustomer = state.customers.find((item) => item.id === event.target.value);
                 updateQuote({
                   customerId: event.target.value,
-                  projectAddress: nextCustomer ? [nextCustomer.address, nextCustomer.city, nextCustomer.province].filter(Boolean).join(', ') : selectedQuote.projectAddress,
-                  taxRate: TAX_RATES[nextCustomer?.province] || selectedQuote.taxRate,
+                  projectAddress: customerAddress(nextCustomer) || selectedQuote.projectAddress,
+                  taxRate: nextCustomer ? customerTaxRate(nextCustomer) : selectedQuote.taxRate,
                 });
               }}>
                 <option value="">Unassigned</option>
@@ -649,7 +674,7 @@ function QuotesPage(props) {
                 {PROJECT_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </label>
-            <Field label="Tax rate %" type="number" value={selectedQuote.taxRate} disabled={locked} onChange={(value) => updateQuote({ taxRate: value })} />
+            <Field label={`Tax rate %${customer?.province ? ` (${customer.province})` : ''}`} type="number" value={activeTaxRate} disabled onChange={() => {}} />
           </div>
         </Panel>
 
