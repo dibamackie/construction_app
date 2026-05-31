@@ -1,0 +1,241 @@
+.quote-builder-layout {
+  min-height: 100vh;
+  padding: 100px 5% 60px 5%; /* Nav offset */
+  background: var(--bg-primary);
+}
+
+.quote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.quote-header h1 {
+  font-size: 2rem;
+}
+
+.quote-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-badge {
+  background: var(--brand-orange-glass);
+  color: var(--brand-orange);
+  padding: 6px 12px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.quote-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.panel {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.panel h3 {
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.form-split {
+  display: flex;
+  gap: 12px;
+}
+
+.w-50 {
+  width: 50%;
+}
+
+.mt-10 { margin-top: 10px; }
+.mt-15 { margin-top: 15px; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.bold { font-weight: 600; }
+.text-red { color: #ef4444; }
+.text-red:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-radius: 4px; }
+.text-muted { color: var(--text-secondary); font-size: 0.9rem; }
+
+.summary-panel {
+  background: var(--bg-secondary);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  padding: 4px 0;
+}
+
+.border-bottom {
+  border-bottom: 1px dashed var(--glass-border);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.grand-total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--brand-orange);
+  padding-top: 12px;
+  border-top: 1px solid var(--glass-border);
+}
+
+/* Right Column */
+.header-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+}
+
+.header-panel h3 {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px;
+  color: var(--text-secondary);
+  border: 1px dashed var(--glass-border);
+}
+
+.rooms-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.room-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.room-header h4 {
+  font-size: 1.1rem;
+  margin: 0;
+  color: var(--brand-orange);
+}
+
+.room-name-input {
+  font-size: 1.1rem;
+  margin: 0;
+  color: var(--brand-orange);
+  background: transparent;
+  border: 1px dashed transparent;
+  outline: none;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.room-name-input:hover, .room-name-input:focus {
+  border-color: var(--brand-orange-glass);
+  background: var(--input-bg-color);
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: inline-flex;
+}
+
+.btn-icon:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.items-container {
+  padding: 16px 24px;
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.header-row {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.col-desc { flex: 3; min-width: 150px; }
+.col-cat { flex: 1.5; min-width: 100px; }
+.col-qty { flex: 0.8; }
+.col-unit { flex: 1; min-width: 70px; }
+.col-price { flex: 1; }
+.col-mu { flex: 0.8; }
+.col-total { flex: 1.2; justify-content: flex-end; }
+.col-act { width: 30px; flex-shrink: 0; }
+
+.simple-input {
+  width: 100%;
+  background: var(--input-bg-color);
+  border: 1px solid transparent;
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s;
+  border-radius: 4px 4px 0 0;
+}
+
+.simple-input:focus {
+  background: rgba(255, 94, 0, 0.05);
+  border-bottom-color: var(--brand-orange);
+}
+
+@media (max-width: 1024px) {
+  .quote-grid {
+    grid-template-columns: 1fr;
+  }
+}
