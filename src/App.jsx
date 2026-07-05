@@ -860,7 +860,7 @@ function QuotesPage(props) {
           </div>
         </Panel>
 
-        <Panel title="Line Items" action={!locked && <button className="small-button" onClick={() => addQuoteItem()}><Plus size={15} /> Item</button>}>
+        <Panel className="quote-line-items-panel" title="Line Items" action={!locked && <button className="small-button" onClick={() => addQuoteItem()}><Plus size={15} /> Item</button>}>
           {!locked && (
             <div className="tool-strip">
               <label>
@@ -932,34 +932,22 @@ function QuotesPage(props) {
               </section>
             ))}
           </div>
-        </Panel>
-
-        <EmailQuotePanel key={selectedQuote.id} quote={selectedQuote} customer={customer} totals={totals} settings={state.settings} />
-
-        <Panel title="Customer Quote Preview">
-          <div className="print-document">
-            <div>
-              <h2>{state.settings.companyName}</h2>
-              <p>{state.settings.companyType}</p>
+          <div className="quote-admin-summary">
+            <div className="quote-summary-details">
+              <div><span>Customer</span><strong>{customer ? displayCustomer(customer) : 'No customer selected'}</strong><small>{customer?.email || 'No email'}</small></div>
+              <div><span>Project</span><strong>{selectedQuote.title || 'Untitled quote'}</strong><small>{selectedQuote.projectAddress || 'No project address'}</small></div>
+              <div><span>Quote</span><strong>{selectedQuote.quoteNumber}</strong><small>{selectedQuote.status} · {selectedQuote.quoteDate}</small></div>
             </div>
-            <div className="doc-grid">
-              <div><b>Customer</b><span>{displayCustomer(customer)}</span><span>{customer?.email}</span></div>
-              <div><b>Project</b><span>{selectedQuote.projectAddress || 'No address'}</span><span>{selectedQuote.quoteNumber}</span></div>
-            </div>
-            <table>
-              <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
-              <tbody>
-                {selectedQuote.items.map((item) => <tr key={item.itemId}><td>{item.name || 'Line item'}</td><td>{item.quantity}</td><td>{item.unit}</td><td>{formatMoney(calculateQuoteItem(item).total)}</td></tr>)}
-              </tbody>
-            </table>
-            <div className="totals">
-              <span>Subtotal {formatMoney(totals.subtotal)}</span>
-              <span>Markup {formatMoney(totals.markup)}</span>
-              <span>Tax {formatMoney(totals.tax)}</span>
-              <strong>Total {formatMoney(totals.total)}</strong>
+            <div className="quote-summary-totals">
+              <div><span>Subtotal</span><strong>{formatMoney(totals.subtotal)}</strong></div>
+              <div><span>Markup</span><strong>{formatMoney(totals.markup)}</strong></div>
+              <div><span>Tax ({activeTaxRate}%)</span><strong>{formatMoney(totals.tax)}</strong></div>
+              <div className="grand-total"><span>Total</span><strong>{formatMoney(totals.total)}</strong></div>
             </div>
           </div>
         </Panel>
+
+        <EmailQuotePanel key={selectedQuote.id} quote={selectedQuote} customer={customer} totals={totals} settings={state.settings} />
       </div>
     </section>
   );
@@ -1342,9 +1330,9 @@ function CrudPage({ title, records, selected, setSelected, label, detail, onNew,
   );
 }
 
-function Panel({ title, action, children }) {
+function Panel({ title, action, children, className = '' }) {
   return (
-    <section className="panel">
+    <section className={`panel ${className}`.trim()}>
       <div className="panel-header">
         <h2>{title}</h2>
         {action}
