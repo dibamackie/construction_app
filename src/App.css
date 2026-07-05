@@ -539,6 +539,29 @@
   gap: 13px;
 }
 
+.customer-picker-row {
+  display: flex;
+  gap: 8px;
+}
+
+.customer-picker-row select {
+  min-width: 0;
+}
+
+.customer-picker-row .small-button {
+  flex: 0 0 auto;
+}
+
+.inline-customer-form {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
 .field,
 .tool-strip label {
   display: grid;
