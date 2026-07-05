@@ -16,6 +16,8 @@ import {
   MapPin,
   Mail,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Printer,
   Search,
@@ -205,6 +207,7 @@ function App() {
   const [notice, setNotice] = useState('');
   const [authView, setAuthView] = useState('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isNavCollapsed, setIsNavCollapsed] = useState(false);
 
   useEffect(() => {
     saveAppState(state);
@@ -476,18 +479,32 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={`app-shell ${isNavCollapsed ? 'nav-collapsed' : ''}`}>
+      <aside className={`sidebar ${isNavCollapsed ? 'collapsed' : ''}`}>
         <div className="brand">
           <div className="brand-mark"><Hammer size={20} /></div>
-          <div>
+          <div className="brand-copy">
             <strong>BuildQuote</strong>
             <span>Construction command center</span>
           </div>
+          <button
+            className="nav-collapse-button"
+            type="button"
+            onClick={() => setIsNavCollapsed((current) => !current)}
+            aria-label={isNavCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+            title={isNavCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+          >
+            {isNavCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
         </div>
         <nav className="side-nav">
           {navItems.map(([id, Icon, label]) => (
-            <button key={id} className={activePage === id ? 'active' : ''} onClick={() => setActivePage(id)}>
+            <button
+              key={id}
+              className={activePage === id ? 'active' : ''}
+              onClick={() => setActivePage(id)}
+              title={isNavCollapsed ? label : undefined}
+            >
               <Icon size={18} />
               <span>{label}</span>
             </button>

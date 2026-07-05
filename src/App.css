@@ -275,6 +275,11 @@
   grid-template-columns: 280px minmax(0, 1fr);
   background: var(--app-bg);
   color: var(--text-primary);
+  transition: grid-template-columns 0.2s ease;
+}
+
+.app-shell.nav-collapsed {
+  grid-template-columns: 84px minmax(0, 1fr);
 }
 
 .sidebar {
@@ -294,7 +299,12 @@
   padding: 0 8px 24px;
 }
 
+.brand-copy {
+  min-width: 0;
+}
+
 .brand-mark {
+  flex: 0 0 42px;
   width: 42px;
   height: 42px;
   display: grid;
@@ -316,6 +326,24 @@
 .brand span {
   color: var(--text-secondary);
   font-size: 0.8rem;
+}
+
+.nav-collapse-button {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.nav-collapse-button:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
 }
 
 .side-nav {
@@ -347,6 +375,39 @@
 .side-nav button.active {
   color: var(--text-primary);
   background: var(--hover-bg);
+}
+
+.sidebar.collapsed {
+  padding-inline: 12px;
+  overflow-x: hidden;
+}
+
+.sidebar.collapsed .brand {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.sidebar.collapsed .brand-copy,
+.sidebar.collapsed .side-nav span {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar.collapsed .brand-mark {
+  display: none;
+}
+
+.sidebar.collapsed .nav-collapse-button {
+  margin-left: 0;
+}
+
+.sidebar.collapsed .side-nav button {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
 }
 
 .workspace {
@@ -912,6 +973,10 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .app-shell.nav-collapsed {
+    grid-template-columns: 1fr;
+  }
+
   .sidebar {
     position: static;
     height: auto;
@@ -921,6 +986,23 @@ textarea {
 
   .side-nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sidebar.collapsed {
+    padding: 16px;
+  }
+
+  .sidebar.collapsed .brand {
+    justify-content: space-between;
+    padding-bottom: 0;
+  }
+
+  .sidebar.collapsed .brand-mark {
+    display: grid;
+  }
+
+  .sidebar.collapsed .side-nav {
+    display: none;
   }
 
   .quotes-layout,
