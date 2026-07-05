@@ -727,26 +727,121 @@ textarea {
 }
 
 .line-items {
-  overflow-x: auto;
+  container-type: inline-size;
+  display: grid;
+  gap: 18px;
+}
+
+.line-item-group {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.line-item-group-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+}
+
+.line-item-group-header label {
+  width: min(320px, 100%);
+  display: grid;
+  gap: 4px;
+}
+
+.line-item-group-header label span,
+.line-item-group-header > span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.line-item-group-header input {
+  min-height: 36px;
+  font-weight: 700;
+}
+
+.line-item-group-list {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
 }
 
 .line-item {
-  min-width: 940px;
   display: grid;
-  grid-template-columns: 1.5fr 1fr 80px 90px 130px 105px 82px 105px 42px;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-muted);
 }
 
-.line-item.header {
+.line-item-field,
+.line-item-total {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.line-item-field span,
+.line-item-total span {
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
-.line-item strong {
-  text-align: right;
+.line-item-field.description {
+  grid-column: span 2;
+}
+
+.line-item-field.category {
+  grid-column: span 2;
+}
+
+.line-item-total {
+  align-self: stretch;
+  align-content: center;
+  justify-items: end;
+}
+
+.line-item .icon-button {
+  justify-self: end;
+}
+
+@container (min-width: 620px) {
+  .line-item {
+    grid-template-columns: minmax(110px, 1.5fr) 50px 60px minmax(85px, 1fr) 70px 60px 75px 38px;
+    gap: 7px;
+    padding: 8px 0;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .line-item input,
+  .line-item select {
+    padding-inline: 7px;
+  }
+
+  .line-item-field.description,
+  .line-item-field.category {
+    grid-column: span 1;
+  }
+}
+
+@container (max-width: 560px) {
+  .line-item {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .line-item-field.description,
+  .line-item-field.category {
+    grid-column: 1 / -1;
+  }
 }
 
 .print-document {
