@@ -815,9 +815,15 @@ textarea {
 }
 
 .line-item-group-header label span,
-.line-item-group-header > span {
+.line-item-group-actions > span {
   color: var(--text-secondary);
   font-size: 0.72rem;
+}
+
+.line-item-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .line-item-group-header input {

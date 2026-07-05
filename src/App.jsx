@@ -330,14 +330,15 @@ function App() {
     });
   }
 
-  function addQuoteItem(priceItem) {
+  function addQuoteItem(priceItem, room = {}) {
     const item = emptyQuoteItem(priceItem ? {
       name: priceItem.name,
       unit: priceItem.unit,
       pricePerUnit: priceItem.pricePerUnit,
       duration: priceItem.duration,
       category: priceItem.category,
-    } : {});
+      ...room,
+    } : room);
     updateQuote({ items: [...selectedQuote.items, item] });
   }
 
@@ -908,7 +909,23 @@ function QuotesPage(props) {
                       }}
                     />
                   </label>
-                  <span>{room.items.length} {room.items.length === 1 ? 'item' : 'items'}</span>
+                  <div className="line-item-group-actions">
+                    <span>{room.items.length} {room.items.length === 1 ? 'item' : 'items'}</span>
+                    {!locked && (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Add item to ${room.roomName || 'room'}`}
+                        title="Add item to room"
+                        onClick={() => addQuoteItem(null, {
+                          roomName: room.roomName,
+                          roomId: room.items[0]?.roomId || crypto.randomUUID(),
+                        })}
+                      >
+                        <Plus size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="line-item-group-list">
                   {room.items.map((item) => {
