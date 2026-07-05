@@ -700,8 +700,10 @@ function DashboardPage({ state, quoteTotals, dashboardStats, setActivePage, setS
 function QuotesPage(props) {
   const {
     state,
+    setState,
     selectedQuote,
     setSelectedQuoteId,
+    setSelectedCustomerId,
     quoteTotals,
     updateQuote,
     updateQuoteItem,
@@ -713,6 +715,8 @@ function QuotesPage(props) {
     deleteRecord,
     flash,
   } = props;
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState(makeCustomer);
 
   if (!selectedQuote) return <EmptyState title="No quotes yet" body="Create a quote to start building project scope." />;
 
@@ -720,6 +724,51 @@ function QuotesPage(props) {
   const totals = quoteTotals.get(selectedQuote.id);
   const customer = state.customers.find((item) => item.id === selectedQuote.customerId);
   const activeTaxRate = taxRateForQuote(selectedQuote, state.customers);
+  const groupedQuoteItems = Array.from(selectedQuote.items.reduce((groups, item) => {
+    const roomName = item.roomName.trim();
+    const groupKey = roomName.toLowerCase();
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        id: item.roomId || item.itemId,
+        roomName,
+        items: [],
+      });
+    }
+    groups.get(groupKey).items.push(item);
+    return groups;
+  }, new Map()).values());
+
+  function saveNewCustomer() {
+    if (!newCustomer.customerName.trim() && !newCustomer.companyName.trim()) {
+      flash('Add a customer or company name.');
+      return;
+    }
+
+    const customerRecord = touch({
+      ...newCustomer,
+      customerName: newCustomer.customerName.trim(),
+      companyName: newCustomer.companyName.trim(),
+    });
+
+    setState((current) => ({
+      ...current,
+      customers: [customerRecord, ...current.customers],
+      quotes: current.quotes.map((quote) => (
+        quote.id === selectedQuote.id
+          ? touch({
+            ...quote,
+            customerId: customerRecord.id,
+            projectAddress: customerAddress(customerRecord) || quote.projectAddress,
+            taxRate: customerTaxRate(customerRecord),
+          })
+          : quote
+      )),
+    }));
+    setSelectedCustomerId(customerRecord.id);
+    setNewCustomer(makeCustomer());
+    setIsAddingCustomer(false);
+    flash('Customer added and assigned to this quote.');
+  }
 
   return (
     <section className="quotes-layout">
@@ -752,20 +801,52 @@ function QuotesPage(props) {
           {locked && <div className="lock-banner">Completed and invoiced projects are read-only.</div>}
           <div className="form-grid">
             <Field label="Project title" value={selectedQuote.title} disabled={locked} onChange={(value) => updateQuote({ title: value })} />
-            <label className="field">
-              Customer
-              <select value={selectedQuote.customerId} disabled={locked} onChange={(event) => {
-                const nextCustomer = state.customers.find((item) => item.id === event.target.value);
-                updateQuote({
-                  customerId: event.target.value,
-                  projectAddress: customerAddress(nextCustomer) || selectedQuote.projectAddress,
-                  taxRate: nextCustomer ? customerTaxRate(nextCustomer) : selectedQuote.taxRate,
-                });
-              }}>
-                <option value="">Unassigned</option>
-                {state.customers.map((item) => <option key={item.id} value={item.id}>{displayCustomer(item)}</option>)}
-              </select>
-            </label>
+            <div className="field customer-picker">
+              <span>Customer</span>
+              <div className="customer-picker-row">
+                <select value={selectedQuote.customerId} disabled={locked} onChange={(event) => {
+                  const nextCustomer = state.customers.find((item) => item.id === event.target.value);
+                  updateQuote({
+                    customerId: event.target.value,
+                    projectAddress: customerAddress(nextCustomer) || selectedQuote.projectAddress,
+                    taxRate: nextCustomer ? customerTaxRate(nextCustomer) : selectedQuote.taxRate,
+                  });
+                }}>
+                  <option value="" disabled>Select a customer</option>
+                  {state.customers.map((item) => <option key={item.id} value={item.id}>{displayCustomer(item)}</option>)}
+                </select>
+                {!locked && (
+                  <button type="button" className="small-button" onClick={() => setIsAddingCustomer((current) => !current)}>
+                    <Plus size={15} /> New
+                  </button>
+                )}
+              </div>
+            </div>
+            {isAddingCustomer && !locked && (
+              <div className="inline-customer-form">
+                <div className="form-grid">
+                  <Field label="customer name" value={newCustomer.customerName} onChange={(value) => setNewCustomer((current) => ({ ...current, customerName: value }))} />
+                  <Field label="company name" value={newCustomer.companyName} onChange={(value) => setNewCustomer((current) => ({ ...current, companyName: value }))} />
+                  <Field label="phone" value={newCustomer.phone} onChange={(value) => setNewCustomer((current) => ({ ...current, phone: value }))} />
+                  <Field label="email" type="email" value={newCustomer.email} onChange={(value) => setNewCustomer((current) => ({ ...current, email: value }))} />
+                  <AddressSearch value={customerAddress(newCustomer)} onSelect={(patch) => setNewCustomer((current) => ({ ...current, ...patch }))} />
+                  <Field label="unit number" value={newCustomer.unitNumber} onChange={(value) => setNewCustomer((current) => ({ ...current, unitNumber: value }))} />
+                  <Field label="city" value={newCustomer.city} onChange={(value) => setNewCustomer((current) => ({ ...current, city: value }))} />
+                  <label className="field">
+                    province
+                    <select value={newCustomer.province} onChange={(event) => setNewCustomer((current) => ({ ...current, province: event.target.value }))}>
+                      {Object.keys(TAX_RATES).map((province) => <option key={province} value={province}>{province}</option>)}
+                    </select>
+                  </label>
+                  <Field label="postal code" value={newCustomer.postalCode} onChange={(value) => setNewCustomer((current) => ({ ...current, postalCode: value }))} />
+                  <Field label="notes" value={newCustomer.notes} onChange={(value) => setNewCustomer((current) => ({ ...current, notes: value }))} />
+                </div>
+                <div className="button-row">
+                  <button type="button" className="primary-button" onClick={saveNewCustomer}><Plus size={15} /> Add customer</button>
+                  <button type="button" className="small-button" onClick={() => { setNewCustomer(makeCustomer()); setIsAddingCustomer(false); }}>Cancel</button>
+                </div>
+              </div>
+            )}
             <Field label="Project address" value={selectedQuote.projectAddress} disabled={locked} onChange={(value) => updateQuote({ projectAddress: value })} />
             <Field label="Quote date" type="date" value={selectedQuote.quoteDate} disabled={locked} onChange={(value) => updateQuote({ quoteDate: value })} />
             <Field label="Start date" type="date" value={selectedQuote.startDate} disabled={locked} onChange={(value) => updateQuote({ startDate: value })} />
@@ -808,27 +889,48 @@ function QuotesPage(props) {
           )}
 
           <div className="line-items">
-            <div className="line-item header">
-              <span>Description</span><span>Room</span><span>Qty</span><span>Unit</span><span>Cat</span><span>Price</span><span>MU%</span><span>Total</span><span></span>
-            </div>
-            {selectedQuote.items.map((item) => {
-              const itemTotal = calculateQuoteItem(item);
-              return (
-                <div className="line-item" key={item.itemId}>
-                  <input value={item.name} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { name: event.target.value })} />
-                  <input value={item.roomName} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { roomName: event.target.value })} />
-                  <input type="number" value={item.quantity} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { quantity: event.target.value })} />
-                  <input value={item.unit} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { unit: event.target.value })} />
-                  <select value={item.category} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { category: event.target.value })}>
-                    {['Labor', 'Material', 'Equipment', 'Subcontractor', 'Other'].map((category) => <option key={category}>{category}</option>)}
-                  </select>
-                  <input type="number" value={item.pricePerUnit} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { pricePerUnit: event.target.value })} />
-                  <input type="number" value={item.markupRate} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { markupRate: event.target.value })} />
-                  <strong>{formatMoney(itemTotal.total)}</strong>
-                  {!locked && <button className="icon-button" onClick={() => updateQuote({ items: selectedQuote.items.filter((candidate) => candidate.itemId !== item.itemId) })}><Trash2 size={15} /></button>}
+            {groupedQuoteItems.map((room) => (
+              <section className="line-item-group" key={room.id}>
+                <div className="line-item-group-header">
+                  <label>
+                    <span>Room</span>
+                    <input
+                      value={room.roomName}
+                      placeholder="Room not set"
+                      disabled={locked}
+                      onChange={(event) => {
+                        const itemIds = new Set(room.items.map((item) => item.itemId));
+                        updateQuote({
+                          items: selectedQuote.items.map((item) => (
+                            itemIds.has(item.itemId) ? { ...item, roomName: event.target.value } : item
+                          )),
+                        });
+                      }}
+                    />
+                  </label>
+                  <span>{room.items.length} {room.items.length === 1 ? 'item' : 'items'}</span>
                 </div>
-              );
-            })}
+                <div className="line-item-group-list">
+                  {room.items.map((item) => {
+                    const itemTotal = calculateQuoteItem(item);
+                    return (
+                      <div className="line-item" key={item.itemId}>
+                        <label className="line-item-field description"><span>Description</span><input value={item.name} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { name: event.target.value })} /></label>
+                        <label className="line-item-field quantity"><span>Qty</span><input type="number" value={item.quantity} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { quantity: event.target.value })} /></label>
+                        <label className="line-item-field unit"><span>Unit</span><input value={item.unit} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { unit: event.target.value })} /></label>
+                        <label className="line-item-field category"><span>Category</span><select value={item.category} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { category: event.target.value })}>
+                          {['Labor', 'Material', 'Equipment', 'Subcontractor', 'Other'].map((category) => <option key={category}>{category}</option>)}
+                        </select></label>
+                        <label className="line-item-field price"><span>Price</span><input type="number" value={item.pricePerUnit} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { pricePerUnit: event.target.value })} /></label>
+                        <label className="line-item-field markup"><span>Markup %</span><input type="number" value={item.markupRate} disabled={locked} onChange={(event) => updateQuoteItem(item.itemId, { markupRate: event.target.value })} /></label>
+                        <div className="line-item-total"><span>Total</span><strong>{formatMoney(itemTotal.total)}</strong></div>
+                        {!locked && <button className="icon-button" onClick={() => updateQuote({ items: selectedQuote.items.filter((candidate) => candidate.itemId !== item.itemId) })}><Trash2 size={15} /></button>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         </Panel>
 
