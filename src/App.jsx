@@ -483,11 +483,21 @@ function App() {
     <div className={`app-shell ${isNavCollapsed ? 'nav-collapsed' : ''}`}>
       <aside className={`sidebar ${isNavCollapsed ? 'collapsed' : ''}`}>
         <div className="brand">
-          <div className="brand-mark"><Hammer size={20} /></div>
-          <div className="brand-copy">
-            <strong>BuildQuote</strong>
-            <span>Construction command center</span>
-          </div>
+          <button
+            type="button"
+            className="brand-home-button"
+            onClick={() => {
+              setAuthView('landing');
+              setIsAuthenticated(false);
+            }}
+            aria-label="Go to BuildQuote landing page"
+          >
+            <div className="brand-mark"><Hammer size={20} /></div>
+            <div className="brand-copy">
+              <strong>BuildQuote</strong>
+              <span>Construction command center</span>
+            </div>
+          </button>
           <button
             className="nav-collapse-button"
             type="button"
