@@ -330,7 +330,7 @@ function App() {
     });
   }
 
-  function addQuoteItem(priceItem, room = {}) {
+  function addQuoteItem(priceItem, room = {}, insertAtTop = false) {
     const item = emptyQuoteItem(priceItem ? {
       name: priceItem.name,
       unit: priceItem.unit,
@@ -339,7 +339,19 @@ function App() {
       category: priceItem.category,
       ...room,
     } : room);
-    updateQuote({ items: [...selectedQuote.items, item] });
+    if (!insertAtTop) {
+      updateQuote({ items: [...selectedQuote.items, item] });
+      return;
+    }
+
+    const firstRoomItemIndex = selectedQuote.items.findIndex((candidate) => (
+      room.roomId
+        ? candidate.roomId === room.roomId
+        : !candidate.roomId && candidate.roomName.trim().toLowerCase() === (room.roomName || '').trim().toLowerCase()
+    ));
+    const nextItems = [...selectedQuote.items];
+    nextItems.splice(firstRoomItemIndex < 0 ? 0 : firstRoomItemIndex, 0, item);
+    updateQuote({ items: nextItems });
   }
 
   function applyRoomTemplate(template) {
@@ -751,7 +763,7 @@ function QuotesPage(props) {
   const activeTaxRate = taxRateForQuote(selectedQuote, state.customers);
   const groupedQuoteItems = Array.from(selectedQuote.items.reduce((groups, item) => {
     const roomName = item.roomName.trim();
-    const groupKey = roomName.toLowerCase();
+    const groupKey = item.roomId || roomName.toLowerCase();
     if (!groups.has(groupKey)) {
       groups.set(groupKey, {
         id: item.roomId || item.itemId,
@@ -793,6 +805,11 @@ function QuotesPage(props) {
     setNewCustomer(makeCustomer());
     setIsAddingCustomer(false);
     flash('Customer added and assigned to this quote.');
+  }
+
+  function addRoom() {
+    const room = emptyQuoteItem({ roomId: crypto.randomUUID() });
+    updateQuote({ items: [room, ...selectedQuote.items] });
   }
 
   return (
@@ -898,7 +915,7 @@ function QuotesPage(props) {
           </div>
         </Panel>
 
-        <Panel className="quote-line-items-panel" title="Line Items" action={!locked && <button className="small-button" onClick={() => addQuoteItem()}><Plus size={15} /> Item</button>}>
+        <Panel className="quote-line-items-panel" title="Line Items" action={!locked && <button className="small-button" onClick={addRoom}><Plus size={15} /> Room</button>}>
           {!locked && (
             <div className="tool-strip">
               <label>
@@ -956,8 +973,8 @@ function QuotesPage(props) {
                         title="Add item to room"
                         onClick={() => addQuoteItem(null, {
                           roomName: room.roomName,
-                          roomId: room.items[0]?.roomId || crypto.randomUUID(),
-                        })}
+                          roomId: room.items[0]?.roomId || '',
+                        }, true)}
                       >
                         <Plus size={16} />
                       </button>
