@@ -728,8 +728,22 @@ function QuotesPage(props) {
   } = props;
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState(makeCustomer);
+  const [quoteSearch, setQuoteSearch] = useState('');
 
   if (!selectedQuote) return <EmptyState title="No quotes yet" body="Create a quote to start building project scope." />;
+
+  const normalizedQuoteSearch = quoteSearch.trim().toLowerCase();
+  const filteredQuotes = state.quotes.filter((quote) => {
+    if (!normalizedQuoteSearch) return true;
+    const quoteCustomer = state.customers.find((item) => item.id === quote.customerId);
+    const searchableText = [
+      quote.quoteNumber,
+      quoteCustomer?.customerName,
+      quoteCustomer?.companyName,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    return searchableText.includes(normalizedQuoteSearch);
+  });
 
   const locked = ['completed', 'invoiced'].includes(selectedQuote.status);
   const totals = quoteTotals.get(selectedQuote.id);
@@ -784,8 +798,18 @@ function QuotesPage(props) {
   return (
     <section className="quotes-layout">
       <Panel title="Quotes">
+        <div className="quote-search">
+          <Search size={16} />
+          <input
+            type="search"
+            value={quoteSearch}
+            onChange={(event) => setQuoteSearch(event.target.value)}
+            placeholder="Search customer or quote number"
+            aria-label="Search quotes by customer name or quote number"
+          />
+        </div>
         <div className="record-list quote-list">
-          {state.quotes.map((quote) => (
+          {filteredQuotes.map((quote) => (
             <button key={quote.id} className={`record-row ${quote.id === selectedQuote.id ? 'selected' : ''}`} onClick={() => setSelectedQuoteId(quote.id)}>
               <div>
                 <strong>{quote.title || 'Untitled quote'}</strong>
@@ -794,6 +818,9 @@ function QuotesPage(props) {
               <b>{formatMoney(quoteTotals.get(quote.id).total)}</b>
             </button>
           ))}
+          {filteredQuotes.length === 0 && (
+            <p className="quote-search-empty">No customers or quote numbers match “{quoteSearch.trim()}”.</p>
+          )}
         </div>
       </Panel>
 

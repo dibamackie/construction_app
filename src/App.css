@@ -569,6 +569,31 @@
   gap: 8px;
 }
 
+.quote-search {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.quote-search svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  color: var(--text-secondary);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.quote-search input {
+  padding-left: 36px;
+}
+
+.quote-search-empty {
+  margin: 8px 4px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .record-row {
   width: 100%;
   display: flex;
