@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
   Bell,
   BarChart3,
   CalendarDays,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   ClipboardList,
   Contact,
@@ -16,6 +19,7 @@ import {
   Menu,
   MapPin,
   Mail,
+  MoreHorizontal,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -26,8 +30,10 @@ import {
   Save,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   TrendingUp,
+  X,
   Trash2,
   Users,
   Wrench,
@@ -1006,7 +1012,10 @@ function QuotesPage(props) {
   );
 }
 
-function SchedulePage({ state, setSelectedQuoteId, setActivePage, updateTask, generateSchedule }) {
+function SchedulePage({ state, setState, setSelectedQuoteId, setActivePage, updateTask, generateSchedule }) {
+  return <ScheduleWorkspace state={state} setState={setState} setSelectedQuoteId={setSelectedQuoteId} setActivePage={setActivePage} updateTask={updateTask} generateSchedule={generateSchedule} />;
+  /* The original task-card implementation remains below temporarily as a behavior reference. */
+  /* eslint-disable no-unreachable */
   const activeTasks = state.schedules;
 
   return (
@@ -1055,6 +1064,90 @@ function SchedulePage({ state, setSelectedQuoteId, setActivePage, updateTask, ge
     </Panel>
   );
 }
+
+function scheduleStatus(task) {
+  const label = completionLabel(task);
+  if (label === 'delayed') return 'delayed';
+  if (task.completedAt || task.status === 'completed' || ['early', 'on-time'].includes(label)) return 'completed';
+  if (['in progress', 'ongoing'].includes(task.status)) return 'in progress';
+  if (task.status === 'blocked') return 'blocked';
+  return task.startDate ? 'scheduled' : 'draft';
+}
+
+function ScheduleWorkspace({ state, setState, setSelectedQuoteId, setActivePage, updateTask, generateSchedule }) {
+  const [selectedId, setSelectedId] = useState(() => localStorage.getItem('siteflow.selectedTask') || state.schedules[0]?.id || '');
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('all');
+  const [trade, setTrade] = useState('all');
+  const [quote, setQuote] = useState('all');
+  const [sort, setSort] = useState('start');
+  const [view, setView] = useState('board');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [menuId, setMenuId] = useState('');
+  const searchRef = useRef(null);
+  const selected = state.schedules.find((task) => task.id === selectedId) || state.schedules[0];
+  const openQuote = (task) => { setSelectedQuoteId(task.quoteId); setActivePage('quotes'); };
+  const deleteTask = (id) => { setState((current) => ({ ...current, schedules: current.schedules.filter((task) => task.id !== id) })); if (id === selectedId) setSelectedId(''); };
+  const duplicateTask = (task) => { const copy = { ...task, id: crypto.randomUUID(), name: `${task.name} copy`, completedAt: '', status: 'not started' }; setState((current) => ({ ...current, schedules: [...current.schedules, copy] })); setSelectedId(copy.id); };
+
+  useEffect(() => { if (selected?.id) localStorage.setItem('siteflow.selectedTask', selected.id); }, [selected?.id]);
+  useEffect(() => {
+    function keys(event) {
+      const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      if (!typing && event.key.toLowerCase() === 'f') { event.preventDefault(); searchRef.current?.focus(); }
+      if (!typing && event.key.toLowerCase() === 'n') { event.preventDefault(); generateSchedule(); }
+      if (!typing && event.key === 'Delete' && selected) deleteTask(selected.id);
+      if (event.key === 'Escape') { setMenuId(''); setFiltersOpen(false); if (!typing) setSelectedId(''); }
+    }
+    window.addEventListener('keydown', keys); return () => window.removeEventListener('keydown', keys);
+  });
+
+  const tasks = [...state.schedules].filter((task) => {
+    const taskQuote = state.quotes.find((item) => item.id === task.quoteId);
+    const customer = state.customers.find((item) => item.id === taskQuote?.customerId);
+    const text = `${task.name} ${task.suggestedTrade} ${task.assignedContractorName} ${taskQuote?.quoteNumber} ${displayCustomer(customer)}`.toLowerCase();
+    return (!search || text.includes(search.toLowerCase())) && (status === 'all' || scheduleStatus(task) === status) && (trade === 'all' || task.suggestedTrade === trade) && (quote === 'all' || task.quoteId === quote);
+  }).sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : String(a.startDate).localeCompare(String(b.startDate)));
+  const counts = { total: state.schedules.length, progress: 0, delayed: 0, unassigned: 0, completed: 0 };
+  state.schedules.forEach((task) => { const value = scheduleStatus(task); if (value === 'in progress') counts.progress++; if (value === 'delayed') counts.delayed++; if (!task.assignedContractorId) counts.unassigned++; if (value === 'completed') counts.completed++; });
+
+  return <section className="schedule-page">
+    <ScheduleToolbar view={view} setView={setView} search={search} setSearch={setSearch} searchRef={searchRef} filtersOpen={filtersOpen} setFiltersOpen={setFiltersOpen} onNew={generateSchedule}/>
+    <ScheduleSummary counts={counts}/>
+    {filtersOpen && <TaskFilters state={state} status={status} setStatus={setStatus} trade={trade} setTrade={setTrade} quote={quote} setQuote={setQuote} sort={sort} setSort={setSort}/>}
+    {state.schedules.length === 0 ? <div className="schedule-empty"><EmptyState title="No schedule tasks yet" body="Open a quote and generate its schedule from line items."/><button className="primary-button" onClick={generateSchedule}>Generate schedule</button></div> : <>
+      <div className={`schedule-workspace view-${view}`}>
+        {(view === 'board' || view === 'table') && <TaskList tasks={tasks} state={state} selectedId={selected?.id} setSelectedId={setSelectedId} menuId={menuId} setMenuId={setMenuId} updateTask={updateTask} openQuote={openQuote} deleteTask={deleteTask} duplicateTask={duplicateTask}/>}
+        {view === 'board' && <TaskDetails task={selected} state={state} updateTask={updateTask} openQuote={openQuote} deleteTask={deleteTask} close={() => setSelectedId('')}/>}
+        {(view === 'timeline' || view === 'calendar') && <Timeline tasks={tasks} state={state} onSelect={setSelectedId}/>}
+      </div>
+      {view === 'board' && <Timeline tasks={tasks} state={state} onSelect={setSelectedId} compact/>}
+    </>}
+  </section>;
+}
+
+function ScheduleToolbar({ view, setView, search, setSearch, searchRef, filtersOpen, setFiltersOpen, onNew }) {
+  return <div className="schedule-toolbar"><div className="schedule-title"><div><h2>Project schedule</h2><p>Plan work, assign trades, and stay ahead of delays.</p></div><button className="primary-button" onClick={onNew}><Plus size={16}/> New schedule</button></div><div className="schedule-controls"><div className="schedule-tabs">{['board','timeline','calendar','table'].map((item)=><button key={item} className={view===item?'active':''} onClick={()=>setView(item)}>{item}</button>)}</div><div className="date-nav"><button aria-label="Previous week"><ChevronLeft size={16}/></button><button>Today</button><button aria-label="Next week"><ChevronRight size={16}/></button><button>Week</button><button>Month</button></div><TaskSearch value={search} setValue={setSearch} inputRef={searchRef}/><button className={`small-button ${filtersOpen?'active':''}`} onClick={()=>setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={15}/> Filters</button></div></div>;
+}
+function TaskSearch({ value, setValue, inputRef }) { return <label className="task-search"><Search size={15}/><input ref={inputRef} value={value} onChange={(event)=>setValue(event.target.value)} placeholder="Search tasks…"/><kbd>F</kbd></label>; }
+function ScheduleSummary({ counts }) { return <div className="schedule-summary">{[[counts.total,'Tasks','neutral'],[counts.progress,'In progress','progress'],[counts.delayed,'Delayed','delayed'],[counts.unassigned,'Unassigned','unassigned'],[counts.completed,'Completed','completed']].map(([value,label,tone])=><div key={label} className={tone}><i/><strong>{value}</strong><span>{label}</span></div>)}</div>; }
+function TaskFilters({ state, status, setStatus, trade, setTrade, quote, setQuote, sort, setSort }) { const trades=[...new Set(state.schedules.map((task)=>task.suggestedTrade).filter(Boolean))]; return <div className="task-filters"><label>Status<select value={status} onChange={(e)=>setStatus(e.target.value)}><option value="all">All statuses</option>{['draft','scheduled','in progress','blocked','completed','delayed'].map((item)=><option key={item}>{item}</option>)}</select></label><label>Quote<select value={quote} onChange={(e)=>setQuote(e.target.value)}><option value="all">All quotes</option>{state.quotes.map((item)=><option key={item.id} value={item.id}>{item.quoteNumber} · {item.title}</option>)}</select></label><label>Trade<select value={trade} onChange={(e)=>setTrade(e.target.value)}><option value="all">All trades</option>{trades.map((item)=><option key={item}>{item}</option>)}</select></label><label>Sort<select value={sort} onChange={(e)=>setSort(e.target.value)}><option value="start">Start date</option><option value="name">Task name</option></select></label></div>; }
+
+function TaskList({ tasks, state, selectedId, setSelectedId, menuId, setMenuId, updateTask, openQuote, deleteTask, duplicateTask }) { return <section className="task-list-panel"><div className="task-list-heading"><span>Status</span><div><strong>Task</strong><small>{tasks.length} shown</small></div><span>Assignee</span><span>Dates</span><span aria-hidden="true" /></div><div className="task-list task-list-scroll">{tasks.map((task)=><TaskRow key={task.id} task={task} state={state} selected={task.id===selectedId} select={()=>setSelectedId(task.id)} menuOpen={menuId===task.id} toggleMenu={()=>setMenuId(menuId===task.id?'':task.id)} updateTask={updateTask} openQuote={()=>openQuote(task)} deleteTask={()=>deleteTask(task.id)} duplicateTask={()=>duplicateTask(task)}/>)}{tasks.length===0&&<EmptyState title="No matching tasks" body="Clear a filter or try another search."/>}</div></section>; }
+function TaskRow({ task, state, selected, select, menuOpen, toggleMenu, updateTask, openQuote, deleteTask, duplicateTask }) { const taskQuote=state.quotes.find((item)=>item.id===task.quoteId); return <div className={`task-row ${selected?'selected':''}`}><button className="task-row-main" onClick={select}><StatusBadge status={scheduleStatus(task)}/><div className="task-row-title"><strong>{task.name}</strong><span>{task.suggestedTrade} · {taskQuote?.quoteNumber}</span></div><ContractorChip task={task}/><div className="task-row-dates"><strong>{task.startDate?.slice(5)||'TBD'} — {task.endDate?.slice(5)||'TBD'}</strong><span>{task.duration||1} working day{Number(task.duration)!==1?'s':''}</span></div></button><button className="row-menu-button" onClick={toggleMenu} aria-label={`Actions for ${task.name}`}><MoreHorizontal size={17}/></button>{menuOpen&&<TaskToolbar task={task} updateTask={updateTask} openQuote={openQuote} deleteTask={deleteTask} duplicateTask={duplicateTask}/>}</div>; }
+function TaskToolbar({ task, updateTask, openQuote, deleteTask, duplicateTask }) { return <div className="task-row-menu"><button onClick={()=>updateTask(task.id,{assignedContractorId:''})}>Assign contractor</button><button onClick={duplicateTask}>Duplicate</button><button onClick={()=>updateTask(task.id,{startDate:task.startDate})}>Reschedule</button><button onClick={()=>updateTask(task.id,{completedAt:today(),status:'completed'})}>Mark complete</button><button onClick={openQuote}>Open quote</button><button className="danger" onClick={deleteTask}>Delete</button></div>; }
+function StatusBadge({ status }) { return <span className={`schedule-status ${status.replace(' ','-')}`}><i/>{status}</span>; }
+function ContractorChip({ task }) { const name=task.assignedContractorName; const initials=name?name.split(/\s+/).map((part)=>part[0]).join('').slice(0,2).toUpperCase():'?'; return <span className={`contractor-chip ${name?'':'unassigned'}`}><i>{initials}</i><span><strong>{name||'Unassigned'}</strong><small>{task.assignedContractorTrade||task.suggestedTrade}</small></span></span>; }
+
+function TaskDetails({ task, state, updateTask, openQuote, deleteTask, close }) {
+  if (!task) return <section className="task-details-panel"><EmptyState title="Select a task" body="Choose a task to review its schedule."/></section>;
+  const taskQuote=state.quotes.find((item)=>item.id===task.quoteId); const customer=state.customers.find((item)=>item.id===taskQuote?.customerId);
+  const assign=(id)=>{const contractor=state.contractors.find((item)=>item.id===id);updateTask(task.id,{assignedContractorId:contractor?.id||'',assignedContractorName:contractor?.companyName||contractor?.contactName||'',assignedContractorTrade:contractor?.trade||''});};
+  return <section className="task-details-panel task-detail-scroll"><div className="task-detail-content"><header><div><StatusBadge status={scheduleStatus(task)}/><h2>{task.name}</h2><p>{taskQuote?.quoteNumber} · {taskQuote?.title}</p></div><button className="detail-close" onClick={close} aria-label="Close details"><X size={18}/></button></header><div className="task-detail-facts"><div><span>Contractor</span><ContractorChip task={task}/></div><div><span>Customer</span><strong>{displayCustomer(customer)}</strong></div><div><span>Trade</span><strong>{task.suggestedTrade}</strong></div><div><span>Duration</span><strong>{task.duration||1} working days</strong></div></div><div className="task-editor"><h3>Scheduling</h3><div className="schedule-fields detail-form-grid"><Field label="Start date" type="date" value={task.startDate} onChange={(value)=>updateTask(task.id,{startDate:value})}/><Field label="End date" type="date" value={task.endDate} onChange={(value)=>updateTask(task.id,{endDate:value})}/><Field label="Completion date" type="date" value={task.completedAt} onChange={(value)=>updateTask(task.id,{completedAt:value,status:value?'completed':'not started'})}/><label className="field">Contractor<select value={task.assignedContractorId} onChange={(e)=>assign(e.target.value)}><option value="">Unassigned</option>{state.contractors.filter((item)=>item.status!=='inactive').map((item)=><option key={item.id} value={item.id}>{item.companyName||item.contactName} · {item.trade}</option>)}</select></label></div><label className="field task-notes">Notes<textarea value={task.notes||''} placeholder="Add site notes, access details, or dependencies…" onChange={(e)=>updateTask(task.id,{notes:e.target.value})}/></label></div><footer className="detail-actions"><button className="primary-button" onClick={()=>updateTask(task.id,{updatedAt:new Date().toISOString()})}>Save</button><button className="small-button" onClick={()=>openQuote(task)}>Open quote</button><button className="small-button complete" onClick={()=>updateTask(task.id,{completedAt:today(),status:'completed'})}><CheckCircle2 size={15}/> Mark complete</button><button className="danger-button" onClick={()=>deleteTask(task.id)}><Trash2 size={15}/></button></footer></div></section>;
+}
+
+function CalendarHeader({ days }) { return <div className="timeline-header"><div>Task / Project</div>{days.map((day)=><div key={day.iso} className={day.today?'today':''}><span>{day.weekday}</span><strong>{day.date}</strong></div>)}</div>; }
+function Timeline({ tasks, state, onSelect, compact=false }) { const now=new Date();const monday=new Date(now);monday.setDate(now.getDate()-((now.getDay()+6)%7));const days=Array.from({length:7},(_,index)=>{const date=new Date(monday);date.setDate(monday.getDate()+index);return{iso:date.toISOString().slice(0,10),weekday:date.toLocaleDateString('en-CA',{weekday:'short'}),date:date.getDate(),today:date.toDateString()===now.toDateString()}});return <section className={`schedule-timeline ${compact?'compact':''}`}><div className="timeline-title"><div><CalendarRange size={17}/><strong>This week</strong><span>{days[0].iso} — {days[6].iso}</span></div><div className="timeline-legend">{['Scheduled','In progress','Completed','Delayed'].map((item)=><span className={item.toLowerCase().replace(' ','-')} key={item}>{item}</span>)}</div></div><div className="timeline-scroll"><CalendarHeader days={days}/><div className="timeline-body">{tasks.slice(0,compact?6:50).map((task)=>{const taskQuote=state.quotes.find((item)=>item.id===task.quoteId);const start=Math.max(0,days.findIndex((day)=>day.iso>=task.startDate));const foundEnd=days.findIndex((day)=>day.iso>=task.endDate);const end=foundEnd<0?6:foundEnd;return <button key={task.id} className="timeline-row" onClick={()=>onSelect(task.id)}><span><strong>{task.name}</strong><small>{taskQuote?.quoteNumber} · {task.suggestedTrade}</small></span><i className={`timeline-bar ${scheduleStatus(task).replace(' ','-')}`} style={{'--start':start,'--span':Math.max(1,end-start+1)}}>{task.assignedContractorName||task.suggestedTrade}</i></button>})}</div></div></section>; }
 
 function EmailQuotePanel({ quote, customer, totals, settings }) {
   const [subject, setSubject] = useState(`Quote ${quote.quoteNumber}: ${quote.title || 'Project quote'}`);
