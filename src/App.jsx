@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Bell,
   BarChart3,
   CalendarDays,
   CheckCircle2,
@@ -12,7 +13,7 @@ import {
   Hammer,
   Home,
   Lock,
-  LogIn,
+  Menu,
   MapPin,
   Mail,
   Package,
@@ -25,6 +26,8 @@ import {
   Save,
   Settings,
   ShieldCheck,
+  Sparkles,
+  TrendingUp,
   Trash2,
   Users,
   Wrench,
@@ -55,6 +58,18 @@ const navItems = [
   ['analysis', BarChart3, 'Analysis'],
   ['settings', Settings, 'Settings'],
 ];
+
+const navGroups = [
+  ['Overview', ['dashboard']],
+  ['Sales', ['quotes', 'customers']],
+  ['Operations', ['schedule', 'takeoff', 'contractors']],
+  ['Resources', ['pricing', 'templates', 'analysis']],
+  ['Administration', ['settings']],
+];
+
+function SiteFlowLogo({ compact = false }) {
+  return <div className="siteflow-logo"><span className="siteflow-mark" aria-hidden="true"><i /><i /><i /></span>{!compact && <span><strong>SiteFlow</strong><small>Construction operations, simplified</small></span>}</div>;
+}
 
 const companyTypes = [
   'General contractor / renovation company',
@@ -208,6 +223,7 @@ function App() {
   const [authView, setAuthView] = useState('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
     saveAppState(state);
@@ -413,7 +429,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `buildquote-backup-${today()}.json`;
+    link.download = `siteflow-backup-${today()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -492,7 +508,8 @@ function App() {
   }
 
   return (
-    <div className={`app-shell ${isNavCollapsed ? 'nav-collapsed' : ''}`}>
+    <div className={`app-shell ${isNavCollapsed ? 'nav-collapsed' : ''} ${isMobileNavOpen ? 'mobile-nav-open' : ''}`}>
+      <button className="nav-scrim" aria-label="Close navigation" onClick={() => setIsMobileNavOpen(false)} />
       <aside className={`sidebar ${isNavCollapsed ? 'collapsed' : ''}`}>
         <div className="brand">
           <button
@@ -502,13 +519,9 @@ function App() {
               setAuthView('landing');
               setIsAuthenticated(false);
             }}
-            aria-label="Go to BuildQuote landing page"
+            aria-label="Go to SiteFlow landing page"
           >
-            <div className="brand-mark"><Hammer size={20} /></div>
-            <div className="brand-copy">
-              <strong>BuildQuote</strong>
-              <span>Construction command center</span>
-            </div>
+            <SiteFlowLogo compact={isNavCollapsed} />
           </button>
           <button
             className="nav-collapse-button"
@@ -520,30 +533,25 @@ function App() {
             {isNavCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
+        <button className="workspace-switcher" type="button"><span className="workspace-avatar">NF</span><span><strong>{state.settings.companyName || 'Northfield Build'}</strong><small>Owner workspace</small></span><span>⌄</span></button>
         <nav className="side-nav">
-          {navItems.map(([id, Icon, label]) => (
-            <button
-              key={id}
-              className={activePage === id ? 'active' : ''}
-              onClick={() => setActivePage(id)}
-              title={isNavCollapsed ? label : undefined}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </button>
-          ))}
+          {navGroups.map(([group, ids]) => <div className="nav-group" key={group}><p>{group}</p>{ids.map((id) => { const [, Icon, label] = navItems.find(([itemId]) => itemId === id); return <button key={id} className={activePage === id ? 'active' : ''} onClick={() => { setActivePage(id); setIsMobileNavOpen(false); }} title={isNavCollapsed ? label : undefined}><Icon size={17} /><span>{label}</span></button>; })}</div>)}
         </nav>
+        <div className="sidebar-footer"><button><ShieldCheck size={17}/><span>Help & support</span></button><div className="user-chip"><span>DS</span><div><strong>Demo User</strong><small>Administrator</small></div></div></div>
       </aside>
 
       <main className="workspace">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">{state.settings.companyType}</p>
+          <button className="mobile-menu-button icon-button" onClick={() => setIsMobileNavOpen(true)} aria-label="Open navigation"><Menu size={20}/></button>
+          <div className="page-context">
+            <p className="eyebrow">SiteFlow / {navItems.find(([id]) => id === activePage)?.[2]}</p>
             <h1>{navItems.find(([id]) => id === activePage)?.[2]}</h1>
           </div>
           <div className="topbar-actions">
             {notice && <span className="notice">{notice}</span>}
-            <button className="icon-button" onClick={exportBackup} title="Export backup"><Download size={18} /></button>
+            <label className="command-search"><Search size={16}/><input placeholder="Search SiteFlow…" aria-label="Search SiteFlow"/><kbd>⌘ K</kbd></label>
+            <button className="icon-button" title="Notifications" aria-label="Notifications"><Bell size={18}/><i/></button>
+            <button className="icon-button" onClick={exportBackup} title="Export backup" aria-label="Export backup"><Download size={18} /></button>
             <button className="primary-button" onClick={() => createQuote()}><Plus size={18} /> New quote</button>
           </div>
         </header>
@@ -563,74 +571,53 @@ function App() {
   );
 }
 
-function LandingPage({ stats, quoteCount, contractorCount, onLogin, onDemo }) {
+function LandingPage({ stats, quoteCount, onLogin, onDemo }) {
+  const features = [
+    ['Quote faster', 'Build accurate estimates from saved pricing and reusable room templates.'],
+    ['Protect your margins', 'See markup, tax, and project value clearly before anything reaches a customer.'],
+    ['Stay on schedule', 'Turn approved scope into sequenced work and spot delays before they spread.'],
+    ['One customer record', 'Keep contacts, job details, quotes, and activity connected.'],
+    ['Coordinate contractors', 'Match trades to work and keep assignment details close to the schedule.'],
+    ['Reduce admin', 'Replace scattered spreadsheets and follow-ups with one operating workspace.'],
+  ];
   return (
     <div className="marketing-page">
       <header className="marketing-nav">
-        <div className="brand">
-          <div className="brand-mark"><Hammer size={20} /></div>
-          <div>
-            <strong>BuildQuote</strong>
-            <span>Contractor workspace</span>
-          </div>
-        </div>
+        <SiteFlowLogo />
+        <nav className="marketing-links" aria-label="Main navigation"><a href="#product">Product</a><a href="#solutions">Solutions</a><a href="#pricing">Pricing</a><a href="#resources">Resources</a></nav>
         <div className="marketing-actions">
-          <button className="small-button" onClick={onLogin}><LogIn size={16} /> Sign in</button>
-          <button className="primary-button" onClick={onDemo}>Open demo <ArrowRight size={16} /></button>
+          <button className="text-button" onClick={onLogin}>Sign in</button>
+          <button className="primary-button" onClick={onDemo}>Start free trial <ArrowRight size={16} /></button>
         </div>
       </header>
 
       <main className="marketing-hero">
-        <div className="hero-media" aria-hidden="true">
-          <img src="/hero.png" alt="" />
-        </div>
         <section className="hero-copy">
-          <span className="security-badge"><ShieldCheck size={16} /> Secure local-first quoting</span>
-          <h1>BuildQuote</h1>
-          <p>
-            A construction command center for quotes, customers, contractors, schedules,
-            reusable pricing, material takeoffs, and project health.
-          </p>
+          <span className="security-badge"><Sparkles size={15} /> Built for modern construction teams</span>
+          <h1>Run every construction project from one organized workspace.</h1>
+          <p>SiteFlow brings quoting, scheduling, customers, contractors, material takeoffs, and project tracking together—so your team can move faster without losing control.</p>
           <div className="hero-actions">
-            <button className="primary-button" onClick={onDemo}>Launch workspace <ArrowRight size={16} /></button>
-            <button className="small-button" onClick={onLogin}><Lock size={16} /> Security login</button>
+            <button className="primary-button large" onClick={onDemo}>Start free trial <ArrowRight size={17} /></button>
+            <button className="small-button large" onClick={onDemo}>View interactive demo</button>
           </div>
+          <small className="trust-note"><CheckCircle2 size={14}/> No credit card required · Setup in minutes</small>
         </section>
 
-        <section className="hero-dashboard" aria-label="BuildQuote preview">
-          <div className="preview-top">
-            <span>Today</span>
-            <strong>{formatMoney(stats.totalValue)}</strong>
-          </div>
-          <div className="preview-grid">
-            <div><span>Open quotes</span><b>{stats.openQuotes.length}</b></div>
-            <div><span>Active jobs</span><b>{stats.activeQuotes.length}</b></div>
-            <div><span>Contractors</span><b>{contractorCount}</b></div>
-            <div><span>Records</span><b>{quoteCount}</b></div>
-          </div>
-          <div className="preview-flow">
-            {['Quote', 'Approve', 'Schedule', 'Invoice'].map((step, index) => (
-              <div key={step} className={index < 3 ? 'done' : ''}>
-                <i />
-                <span>{step}</span>
-              </div>
-            ))}
-          </div>
+        <section className="hero-dashboard" aria-label="SiteFlow dashboard preview">
+          <div className="mock-sidebar"><SiteFlowLogo compact/><i/><i/><i/><i/><i/></div>
+          <div className="mock-main"><div className="preview-top"><span>Operations overview</span><strong>Today</strong></div><div className="preview-grid"><div><span>Open quotes</span><b>{stats.openQuotes.length}</b><small>+12% this month</small></div><div><span>Active projects</span><b>{stats.activeQuotes.length}</b><small>All teams</small></div><div><span>Pipeline value</span><b>{formatMoney(stats.totalValue)}</b><small>Across {quoteCount} quotes</small></div></div><div className="mock-chart"><div><strong>Quote value</strong><span>Last 6 months</span></div><svg viewBox="0 0 600 150" preserveAspectRatio="none"><path d="M0 130 C80 110 105 120 170 82 S260 110 330 62 S430 88 490 38 S560 45 600 16"/><path className="area" d="M0 130 C80 110 105 120 170 82 S260 110 330 62 S430 88 490 38 S560 45 600 16 V150 H0Z"/></svg></div></div>
         </section>
       </main>
 
-      <section className="marketing-modules">
-        {[
-          ['Quote Builder', 'Reusable pricing, room templates, markup, tax, and print-ready customer documents.'],
-          ['Schedule Control', 'Business-day sequencing, trade suggestions, task completion, and delay visibility.'],
-          ['CRM Records', 'Customers, contractors, contact details, notes, rates, and job relationships.'],
-        ].map(([title, body]) => (
-          <article key={title}>
-            <h2>{title}</h2>
-            <p>{body}</p>
-          </article>
-        ))}
-      </section>
+      <section className="logo-strip"><p>Trusted workflows for growing builders</p><div><b>NORTHLINE</b><b>FIELDSTONE</b><b>ARC & CO.</b><b>SUMMIT</b><b>HOMESTEAD</b></div></section>
+      <section className="marketing-section" id="product"><div className="section-heading"><span>One connected system</span><h2>Less time managing software. More time moving work forward.</h2><p>Give your team a clear process from first estimate to final handoff.</p></div><div className="benefit-grid">{features.slice(0,3).map(([title,body], index)=><article key={title}><span>0{index+1}</span><h3>{title}</h3><p>{body}</p></article>)}</div></section>
+      <section className="workflow-section" id="solutions"><div><span>QUOTE TO COMPLETION</span><h2>A workflow your whole team can follow.</h2><p>Scope the work, win approval, schedule the right trade, and track delivery without re-entering information.</p></div><ol>{['Build an accurate quote','Get customer approval','Create the project schedule','Track work to completion'].map((step,index)=><li key={step}><b>{index+1}</b><span><strong>{step}</strong><small>{['Use saved pricing and margin controls.','Send a clear, professional scope.','Sequence tasks and assign contractors.','See progress, risks, and handoff details.'][index]}</small></span></li>)}</ol></section>
+      <section className="marketing-section" id="resources"><div className="section-heading"><span>EVERYTHING IN CONTEXT</span><h2>Operational control without enterprise complexity.</h2></div><div className="feature-grid">{features.slice(3).map(([title,body])=><article key={title}><CheckCircle2 size={20}/><h3>{title}</h3><p>{body}</p></article>)}</div></section>
+      <section className="testimonial"><blockquote>“SiteFlow gives us one reliable place to see what was quoted, who is doing the work, and what needs attention next. That clarity protects our time and our margin.”</blockquote><p><strong>Marcus Chen</strong><span>Operations Director, Northline Renovations</span></p></section>
+      <section className="pricing-preview" id="pricing"><div><span>Simple, transparent pricing</span><h2>Built to pay for itself in one better-managed project.</h2><p>Start with every core workflow. Add your team when you’re ready.</p></div><article><small>SiteFlow Pro</small><h3>$89 <span>/ month</span></h3><ul><li>Unlimited quotes and projects</li><li>Scheduling and contractor records</li><li>Material takeoffs and reporting</li></ul><button className="primary-button large" onClick={onDemo}>Start free trial</button></article></section>
+      <section className="faq"><div className="section-heading"><span>FAQ</span><h2>Questions, answered.</h2></div>{[['Can I keep my existing data?','Yes. SiteFlow keeps your current quote, customer, contractor, pricing, and schedule records intact.'],['Is SiteFlow just for general contractors?','No. The workflow fits renovation companies and specialty contractors that quote and coordinate project work.'],['Can I try it before paying?','Yes. Start with the interactive workspace and explore the full workflow without a credit card.']].map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</section>
+      <section className="final-cta"><SiteFlowLogo compact/><h2>Bring every project into focus.</h2><p>Quote faster, protect margins, and keep your team aligned from first contact to final handoff.</p><button className="primary-button large" onClick={onDemo}>Start free trial <ArrowRight size={17}/></button></section>
+      <footer className="marketing-footer"><SiteFlowLogo/><p>© 2026 SiteFlow. Construction operations, simplified.</p><div><a href="#product">Product</a><a href="#pricing">Pricing</a><button onClick={onLogin}>Sign in</button></div></footer>
     </div>
   );
 }
@@ -678,18 +665,24 @@ function LoginMock({ companyName, onBack, onLogin }) {
 
 function DashboardPage({ state, quoteTotals, dashboardStats, setActivePage, setSelectedQuoteId, createQuote }) {
   const recentQuotes = state.quotes.slice(0, 5);
+  const approvedValue = state.quotes.filter((quote) => quote.status !== 'open').reduce((sum, quote) => sum + quoteTotals.get(quote.id).total, 0);
 
   return (
     <section className="page-grid">
+      <div className="dashboard-intro"><div><h2>Good morning, Demo</h2><p>Here’s what needs your attention across the business today.</p></div><div className="button-row"><button className="small-button"><CalendarDays size={16}/> Last 30 days</button><button className="primary-button" onClick={() => createQuote()}><Plus size={16}/> Create quote</button></div></div>
       <div className="stat-grid">
-        <StatCard label="Open quotes" value={dashboardStats.openQuotes.length} onClick={() => setActivePage('quotes')} />
-        <StatCard label="Active jobs" value={dashboardStats.activeQuotes.length} onClick={() => setActivePage('schedule')} />
-        <StatCard label="Delayed jobs" value={dashboardStats.delayedQuotes.length} tone="warning" onClick={() => setActivePage('schedule')} />
-        <StatCard label="Quoted value" value={formatMoney(dashboardStats.totalValue)} />
+        <StatCard label="Open quotes" value={dashboardStats.openQuotes.length} trend="12% from last month" icon={FileText} onClick={() => setActivePage('quotes')} />
+        <StatCard label="Active projects" value={dashboardStats.activeQuotes.length} trend="Across all crews" icon={ClipboardList} onClick={() => setActivePage('schedule')} />
+        <StatCard label="Quote value" value={formatMoney(dashboardStats.totalValue)} trend="Current pipeline" icon={TrendingUp} />
+        <StatCard label="Approved value" value={formatMoney(approvedValue)} trend="Ready to deliver" icon={CheckCircle2} tone="success" />
+        <StatCard label="Needs attention" value={dashboardStats.delayedQuotes.length} trend="Overdue or delayed" icon={AlertTriangle} tone="warning" onClick={() => setActivePage('schedule')} />
       </div>
-
-      <div className="split-grid">
-        <Panel title="Recent Quotes" action={<button className="small-button" onClick={() => createQuote()}><Plus size={15} /> New</button>}>
+      <div className="dashboard-main-grid">
+        <Panel className="revenue-panel" title="Quote value" action={<span className="panel-meta">Last 6 months</span>}><div className="chart-summary"><strong>{formatMoney(dashboardStats.totalValue)}</strong><span><TrendingUp size={14}/> 18.4%</span></div><div className="revenue-chart" aria-label="Quote value trend"><i style={{height:'32%'}}/><i style={{height:'48%'}}/><i style={{height:'43%'}}/><i style={{height:'68%'}}/><i style={{height:'61%'}}/><i style={{height:'84%'}}/></div><div className="chart-labels"><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span></div></Panel>
+        <Panel title="Attention required"><div className="health-list"><div className="attention-row"><span className="severity amber"><AlertTriangle size={15}/></span><div><strong>Confirm project start date</strong><small>Sample bathroom refresh · Due today</small></div><button onClick={() => setActivePage('schedule')}>Review</button></div><div className="attention-row"><span className="severity blue"><CalendarDays size={15}/></span><div><strong>Assign tile contractor</strong><small>Schedule · Due tomorrow</small></div><button onClick={() => setActivePage('contractors')}>Assign</button></div></div></Panel>
+      </div>
+      <div className="split-grid dashboard-lower">
+        <Panel title="Recent quotes" action={<button className="text-button" onClick={() => setActivePage('quotes')}>View all <ArrowRight size={14}/></button>}>
           <div className="record-list">
             {recentQuotes.map((quote) => (
               <button key={quote.id} className="record-row" onClick={() => { setSelectedQuoteId(quote.id); setActivePage('quotes'); }}>
@@ -703,18 +696,7 @@ function DashboardPage({ state, quoteTotals, dashboardStats, setActivePage, setS
           </div>
         </Panel>
 
-        <Panel title="Schedule Health">
-          <div className="health-list">
-            {dashboardStats.delayedQuotes.length === 0 ? (
-              <EmptyState title="No delayed jobs" body="Active jobs are currently on track." />
-            ) : dashboardStats.delayedQuotes.map((quote) => (
-              <div className="health-row" key={quote.id}>
-                <AlertTriangle size={18} />
-                <span>{quote.title || quote.quoteNumber}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
+        <Panel title="Upcoming schedule"><div className="schedule-preview">{state.schedules.slice(0,4).map((task)=><div key={task.id}><time>{task.startDate?.slice(5) || 'TBD'}</time><span><strong>{task.name}</strong><small>{task.assignedContractorName || task.suggestedTrade}</small></span></div>)}{state.schedules.length===0 && <EmptyState title="Schedule is ready" body="Approve a quote to generate upcoming work."/>}</div></Panel>
       </div>
     </section>
   );
@@ -1513,12 +1495,12 @@ function AddressSearch({ value, onSelect }) {
   );
 }
 
-function StatCard({ label, value, tone = '', onClick }) {
+function StatCard({ label, value, tone = '', onClick, trend = 'Updated today', icon: Icon = BarChart3 }) {
   const Component = onClick ? 'button' : 'div';
   return (
     <Component className={`stat-card ${tone}`} onClick={onClick}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span className="stat-icon"><Icon size={17}/></span>
+      <span>{label}</span><strong>{value}</strong><small>{trend}</small>
     </Component>
   );
 }

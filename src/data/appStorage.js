@@ -56,7 +56,7 @@ export function createInitialState() {
   return {
     settings: {
       themeMode: 'system',
-      companyName: 'BuildQuote',
+      companyName: 'Northfield Build Co.',
       companyType: 'General contractor / renovation company',
       province: 'ON',
       taxRate: TAX_RATES.ON,

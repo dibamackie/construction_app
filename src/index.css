@@ -1,80 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --app-bg: #f4f5f7;
-  --surface: #ffffff;
-  --surface-strong: #f9fafb;
-  --surface-muted: #f3f4f6;
-  --border-color: #d9dee7;
-  --text-primary: #172033;
-  --text-secondary: #667085;
-  --accent: #2563eb;
-  --accent-soft: #dbeafe;
-  --danger: #c2410c;
-  --danger-soft: #ffedd5;
-  --success: #047857;
-  --success-soft: #d1fae5;
-  --warning-text: #92400e;
-  --warning-bg: #fffbeb;
-  --warning-border: #fcd34d;
-  --input-bg-color: #ffffff;
-  --hover-bg: #eef2ff;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: var(--text-primary);
-  background: var(--app-bg);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #111827; background: #f5f6f8; font-synthesis: none; text-rendering: optimizeLegibility;
+  --app-bg:#f5f6f8; --surface:#fff; --surface-strong:#f8fafc; --surface-muted:#f2f4f7;
+  --border-color:#e4e7ec; --text-primary:#111827; --text-secondary:#667085;
+  --accent:#2563eb; --accent-hover:#1d4ed8; --accent-soft:#eff6ff;
+  --danger:#dc2626; --danger-soft:#fef2f2; --success:#16a34a; --success-soft:#f0fdf4;
+  --warning-text:#b45309; --warning-bg:#fffbeb; --warning-border:#fcd34d;
+  --input-bg-color:#fff; --hover-bg:#f8fafc; --sidebar:#111827;
 }
-
-[data-theme='dark'] {
-  --app-bg: #111827;
-  --surface: #1f2937;
-  --surface-strong: #0f172a;
-  --surface-muted: #273244;
-  --border-color: #374151;
-  --text-primary: #f9fafb;
-  --text-secondary: #a7b0c0;
-  --accent: #60a5fa;
-  --accent-soft: rgba(96, 165, 250, 0.18);
-  --danger: #fb923c;
-  --danger-soft: rgba(251, 146, 60, 0.18);
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.18);
-  --warning-text: #fbbf24;
-  --warning-bg: rgba(251, 191, 36, 0.12);
-  --warning-border: rgba(251, 191, 36, 0.35);
-  --input-bg-color: #111827;
-  --hover-bg: rgba(96, 165, 250, 0.12);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: var(--app-bg);
-  color: var(--text-primary);
-}
-
-button,
-input,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-  border: 0;
-}
-
-h1,
-h2,
-h3,
-p {
-  margin: 0;
-}
-
-a {
-  color: inherit;
-}
+[data-theme='dark'] { --app-bg:#0b1120;--surface:#111827;--surface-strong:#172033;--surface-muted:#1f2937;--border-color:#344054;--text-primary:#f9fafb;--text-secondary:#98a2b3;--input-bg-color:#111827;--hover-bg:#1f2937;--accent-soft:#172554; }
+*{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;min-width:320px;min-height:100vh;background:var(--app-bg);color:var(--text-primary)} button,input,select,textarea{font:inherit} button,a{transition:background-color .16s,color .16s,border-color .16s,transform .16s} button{cursor:pointer} button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px} a{color:inherit;text-decoration:none} h1,h2,h3,p{margin-top:0} ::selection{background:#bfdbfe;color:#172554}
