@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   ClipboardList,
   Contact,
+  Copy,
   Download,
+  Eye,
   FileText,
   Hammer,
   Home,
@@ -33,6 +35,8 @@ import {
   SlidersHorizontal,
   Sparkles,
   TrendingUp,
+  Undo2,
+  Redo2,
   X,
   Trash2,
   Users,
@@ -99,6 +103,33 @@ const companyTypes = [
   'Insulation',
   'Handy person/property maintenance',
   'Cleaning/post-construction cleaning',
+];
+
+const QUOTE_UNITS = [
+  'each',
+  'sq ft',
+  'linear ft',
+  'cu ft',
+  'sq yd',
+  'cu yd',
+  'ft',
+  'in',
+  'm',
+  'sq m',
+  'hour',
+  'day',
+  'week',
+  'lump sum',
+  'allowance',
+  'sheet',
+  'board',
+  'box',
+  'bag',
+  'bundle',
+  'roll',
+  'gallon',
+  'litre',
+  'ton',
 ];
 
 const provinceAliases = {
@@ -800,6 +831,8 @@ function QuotesPage(props) {
     updateQuote({ items: [room, ...selectedQuote.items] });
   }
 
+  return <QuoteWorkspace state={state} selectedQuote={selectedQuote} selectedQuoteId={selectedQuote.id} setSelectedQuoteId={setSelectedQuoteId} filteredQuotes={filteredQuotes} quoteSearch={quoteSearch} setQuoteSearch={setQuoteSearch} quoteTotals={quoteTotals} totals={totals} customer={customer} activeTaxRate={activeTaxRate} groupedQuoteItems={groupedQuoteItems} locked={locked} updateQuote={updateQuote} updateQuoteItem={updateQuoteItem} addQuoteItem={addQuoteItem} applyRoomTemplate={applyRoomTemplate} addRoom={addRoom} approveQuote={approveQuote} generateSchedule={generateSchedule} printQuote={printQuote} deleteRecord={deleteRecord} flash={flash} isAddingCustomer={isAddingCustomer} setIsAddingCustomer={setIsAddingCustomer} newCustomer={newCustomer} setNewCustomer={setNewCustomer} saveNewCustomer={saveNewCustomer}/>;
+  /* eslint-disable no-unreachable */
   return (
     <section className="quotes-layout">
       <Panel title="Quotes">
@@ -1011,6 +1044,71 @@ function QuotesPage(props) {
     </section>
   );
 }
+
+function QuoteWorkspace(props) {
+  const { state, selectedQuote, setSelectedQuoteId, filteredQuotes, quoteSearch, setQuoteSearch, quoteTotals, totals, customer, activeTaxRate, groupedQuoteItems, locked, updateQuote, updateQuoteItem, addQuoteItem, applyRoomTemplate, addRoom, approveQuote, generateSchedule, printQuote, deleteRecord, flash, isAddingCustomer, setIsAddingCustomer, newCustomer, setNewCustomer, saveNewCustomer } = props;
+  const [statusTab, setStatusTab] = useState('all');
+  const [emailOpen, setEmailOpen] = useState(false);
+  const visibleQuotes = filteredQuotes.filter((quote) => statusTab === 'all' || quote.status === statusTab || (statusTab === 'draft' && quote.status === 'open'));
+  useEffect(() => {
+    function shortcuts(event) {
+      if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); flash('All changes saved.'); }
+      if (event.key.toLowerCase() === 'p') { event.preventDefault(); printQuote(); }
+    }
+    window.addEventListener('keydown', shortcuts); return () => window.removeEventListener('keydown', shortcuts);
+  }, [flash, printQuote]);
+  return <section className="quote-workspace">
+    <QuoteSidebar quotes={visibleQuotes} allQuotes={state.quotes} selectedId={selectedQuote.id} setSelectedId={setSelectedQuoteId} search={quoteSearch} setSearch={setQuoteSearch} totals={quoteTotals} customers={state.customers} statusTab={statusTab} setStatusTab={setStatusTab}/>
+    <main className="quote-main">
+      <QuoteHeader quote={selectedQuote} customer={customer} totals={totals} locked={locked} printQuote={printQuote} approveQuote={approveQuote} generateSchedule={generateSchedule} flash={flash} onEmail={()=>setEmailOpen(true)}/>
+      {locked && <div className="lock-banner">Completed and invoiced projects are read-only.</div>}
+      <QuoteInformation state={state} quote={selectedQuote} customer={customer} activeTaxRate={activeTaxRate} locked={locked} updateQuote={updateQuote} isAddingCustomer={isAddingCustomer} setIsAddingCustomer={setIsAddingCustomer} newCustomer={newCustomer} setNewCustomer={setNewCustomer} saveNewCustomer={saveNewCustomer}/>
+      <div className="estimate-layout">
+        <div className="estimate-main"><EstimateTable state={state} quote={selectedQuote} rooms={groupedQuoteItems} locked={locked} activeTaxRate={activeTaxRate} updateQuote={updateQuote} updateQuoteItem={updateQuoteItem} addQuoteItem={addQuoteItem} applyRoomTemplate={applyRoomTemplate} addRoom={addRoom}/></div>
+        <SummarySidebar totals={totals} taxRate={activeTaxRate} printQuote={printQuote} approveQuote={approveQuote} generateSchedule={generateSchedule} onEmail={()=>setEmailOpen(true)}/>
+      </div>
+      {selectedQuote.status === 'open' && <button className="quote-delete-link" onClick={()=>{if(window.confirm('Delete this open quote?')){deleteRecord('quotes',selectedQuote.id,setSelectedQuoteId);flash('Open quote deleted.')}}}><Trash2 size={14}/> Delete quote</button>}
+    </main>
+    {emailOpen&&<EmailDialog quote={selectedQuote} customer={customer} totals={totals} settings={state.settings} close={()=>setEmailOpen(false)}/>}
+    <div className="quote-mobile-actions"><button onClick={printQuote}><Eye size={16}/>Preview</button><button onClick={()=>setEmailOpen(true)}><Mail size={16}/>Email</button><button className="primary-button" onClick={approveQuote}>Approve</button></div>
+  </section>;
+}
+
+function QuoteStatusBadge({ status }) { const label=status==='open'?'Draft':status; return <span className={`quote-status ${status}`}>{label}</span>; }
+function PriceDisplay({ value, small=false }) { return <strong className={`price-display ${small?'small':''}`}>{formatMoney(value)}</strong>; }
+
+function QuoteSidebar({ quotes, allQuotes, selectedId, setSelectedId, search, setSearch, totals, customers, statusTab, setStatusTab }) {
+  const statusValues=['Draft','Approved','Sent','Archived'].map((label)=>{const key=label==='Draft'?'open':label.toLowerCase();return{label,value:allQuotes.filter((quote)=>quote.status===key).reduce((sum,quote)=>sum+(totals.get(quote.id)?.total||0),0)}}); const maxValue=Math.max(1,...statusValues.map((item)=>item.value)); const pipeline=allQuotes.reduce((sum,quote)=>sum+(totals.get(quote.id)?.total||0),0);
+  return <aside className="quote-sidebar"><div className="quote-overview"><div className="quote-sidebar-head"><div><h2>Quotes</h2><span>{allQuotes.length} total</span></div><div className="quote-pipeline-total"><span>Total pipeline</span><PriceDisplay value={pipeline}/></div></div><div className="quote-overview-chart" aria-label="Quote value by status">{statusValues.map((item)=><div key={item.label}><i><em style={{height:`${Math.max(8,item.value/maxValue*100)}%`}}/></i><span>{item.label}</span><small>{formatMoney(item.value)}</small></div>)}</div></div><div className="quote-browser-controls"><label className="quote-workspace-search"><Search size={15}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search quotes or customers…"/></label><div className="quote-status-tabs">{['all','draft','approved','sent','archived'].map((tab)=><button key={tab} className={statusTab===tab?'active':''} onClick={()=>setStatusTab(tab)}>{tab}</button>)}</div><button className="icon-button" aria-label="Filter quotes"><SlidersHorizontal size={15}/></button></div><div className="quote-sidebar-list">{quotes.map((quote)=>{const customer=customers.find((item)=>item.id===quote.customerId);return <button key={quote.id} className={`quote-sidebar-row ${selectedId===quote.id?'selected':''}`} onClick={()=>setSelectedId(quote.id)}><div className="quote-row-top"><strong>{quote.title||'Untitled project'}</strong><PriceDisplay value={totals.get(quote.id).total} small/></div><span>{displayCustomer(customer)}</span><div><QuoteStatusBadge status={quote.status}/><time>{quote.updatedAt?new Date(quote.updatedAt).toLocaleDateString('en-CA',{month:'short',day:'numeric'}):quote.quoteDate}</time></div></button>})}{quotes.length===0&&<EmptyState title="No matching quotes" body="Try another search or status."/>}</div></aside>;
+}
+
+function QuoteHeader({ quote, customer, totals, locked, printQuote, approveQuote, generateSchedule, flash, onEmail }) {
+  return <header className="premium-quote-header"><div className="quote-heading"><span>{quote.quoteNumber}</span><h1>{quote.title||'Untitled quote'}</h1><div><QuoteStatusBadge status={quote.status}/><span>{customer?displayCustomer(customer):'No customer'}</span><small>Saved {quote.updatedAt?new Date(quote.updatedAt).toLocaleTimeString('en-CA',{hour:'numeric',minute:'2-digit'}):'just now'}</small></div></div><div className="quote-header-value"><span>Quote total</span><PriceDisplay value={totals.total}/></div><div className="quote-header-actions"><button className="icon-button" disabled title="Undo"><Undo2 size={16}/></button><button className="icon-button" disabled title="Redo"><Redo2 size={16}/></button><button className="small-button" onClick={printQuote}><Eye size={15}/> Preview</button><button className="small-button" onClick={printQuote}><Printer size={15}/> Print</button><button className="small-button" onClick={onEmail}><Mail size={15}/> Email</button>{!locked&&quote.status==='open'&&<button className="primary-button" onClick={approveQuote}><CheckCircle2 size={15}/> Approve</button>}<button className="small-button" onClick={generateSchedule}><CalendarDays size={15}/> Schedule</button><button className="icon-button" onClick={()=>flash('All changes saved.')} aria-label="More quote actions"><MoreHorizontal size={17}/></button></div></header>;
+}
+
+function QuoteInfoCard({ label, icon:Icon, children }) { return <section className="quote-info-card"><header><Icon size={15}/><span>{label}</span></header>{children}</section>; }
+function QuoteInformation({ state, quote, customer, activeTaxRate, locked, updateQuote, isAddingCustomer, setIsAddingCustomer, newCustomer, setNewCustomer, saveNewCustomer }) {
+  const selectCustomer=(id)=>{const next=state.customers.find((item)=>item.id===id);updateQuote({customerId:id,projectAddress:customerAddress(next)||quote.projectAddress,taxRate:next?customerTaxRate(next):quote.taxRate})};
+  return <section className="quote-information" id="quote-customer-information"><QuoteInfoCard label="Project" icon={ClipboardList}><Field label="Project title" value={quote.title} disabled={locked} onChange={(value)=>updateQuote({title:value})}/><label className="field">Status<select value={quote.status} disabled={locked} onChange={(e)=>updateQuote({status:e.target.value})}>{PROJECT_STATUSES.map((item)=><option key={item}>{item}</option>)}</select></label></QuoteInfoCard><QuoteInfoCard label="Customer" icon={Users}><label className="field">Customer<select value={quote.customerId} disabled={locked} onChange={(e)=>selectCustomer(e.target.value)}><option value="">Select customer</option>{state.customers.map((item)=><option key={item.id} value={item.id}>{displayCustomer(item)}</option>)}</select></label>{!locked&&<button className="text-button" onClick={()=>{const opening=!isAddingCustomer;setIsAddingCustomer(opening);if(opening)window.setTimeout(()=>document.querySelector('#quote-customer-information')?.scrollIntoView({behavior:'smooth',block:'start'}),0)}}><Plus size={14}/> Add customer</button>}</QuoteInfoCard><QuoteInfoCard label="Address" icon={MapPin}><Field label="Project address" value={quote.projectAddress} disabled={locked} onChange={(value)=>updateQuote({projectAddress:value})}/></QuoteInfoCard><QuoteInfoCard label="Schedule" icon={CalendarDays}><Field label="Quote date" type="date" value={quote.quoteDate} disabled={locked} onChange={(value)=>updateQuote({quoteDate:value})}/><Field label="Start date" type="date" value={quote.startDate} disabled={locked} onChange={(value)=>updateQuote({startDate:value})}/></QuoteInfoCard><QuoteInfoCard label="Tax" icon={TrendingUp}><Field label={`Rate${customer?.province?` · ${customer.province}`:''}`} type="number" value={activeTaxRate} disabled onChange={()=>{}}/><small>Applied automatically from customer province.</small></QuoteInfoCard>{isAddingCustomer&&!locked&&<div className="quick-customer-form"><div className="customer-choice"><div><h3>Choose an existing customer</h3><p>Assign a customer already saved in SiteFlow.</p></div><label className="field">Existing customer<select defaultValue="" onChange={(e)=>{if(e.target.value){selectCustomer(e.target.value);setIsAddingCustomer(false)}}}><option value="">Choose customer…</option>{state.customers.map((item)=><option key={item.id} value={item.id}>{displayCustomer(item)}{item.companyName?` · ${item.companyName}`:''}</option>)}</select></label></div><div className="customer-choice-divider"><span>or save a new customer</span></div><h3>New customer details</h3><div>{[['Customer name','customerName'],['Company','companyName'],['Phone','phone'],['Email','email']].map(([label,key])=><Field key={key} label={label} value={newCustomer[key]} onChange={(value)=>setNewCustomer((current)=>({...current,[key]:value}))}/>) }<AddressSearch value={customerAddress(newCustomer)} onSelect={(patch)=>setNewCustomer((current)=>({...current,...patch}))}/>{[['Unit','unitNumber'],['City','city'],['Postal code','postalCode'],['Notes','notes']].map(([label,key])=><Field key={key} label={label} value={newCustomer[key]} onChange={(value)=>setNewCustomer((current)=>({...current,[key]:value}))}/>) }<label className="field">Province<select value={newCustomer.province} onChange={(e)=>setNewCustomer((current)=>({...current,province:e.target.value}))}>{Object.keys(TAX_RATES).map((province)=><option key={province}>{province}</option>)}</select></label></div><div className="button-row"><button className="primary-button" onClick={saveNewCustomer}>Save and assign customer</button><button className="small-button" onClick={()=>setIsAddingCustomer(false)}>Cancel</button></div></div>}</section>;
+}
+
+function EstimateTable({ state, quote, rooms, locked, activeTaxRate, updateQuote, updateQuoteItem, addQuoteItem, applyRoomTemplate, addRoom }) {
+  const [collapsed,setCollapsed]=useState({});
+  const removeRoom=(room)=>updateQuote({items:quote.items.filter((item)=>!room.items.some((member)=>member.itemId===item.itemId))});
+  const duplicateRoom=(room)=>{const roomId=crypto.randomUUID();updateQuote({items:[...quote.items,...room.items.map((item)=>({...item,itemId:crypto.randomUUID(),roomId,roomName:`${room.roomName||'Room'} copy`}))]})};
+  return <section className="estimate-table"><div className="estimate-toolbar"><div><span>Estimate</span><h2>Line items</h2><small>Add rooms first, then build the scope with descriptive line items.</small></div>{!locked&&<div><button className="primary-button estimate-add-room" onClick={addRoom}><Plus size={15}/> Add room</button><label>Price list<select defaultValue="" onChange={(e)=>{const item=state.priceList.find((value)=>value.id===e.target.value);if(item)addQuoteItem(item);e.target.value=''}}><option value="">Add saved item…</option>{state.priceList.map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Template<select defaultValue="" onChange={(e)=>{const item=state.roomTemplates.find((value)=>value.id===e.target.value);if(item)applyRoomTemplate(item);e.target.value=''}}><option value="">Apply room template…</option>{state.roomTemplates.map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>}</div><div className="estimate-scroll">{rooms.map((room)=>{const subtotal=room.items.reduce((sum,item)=>sum+calculateQuoteItem(item).total,0);const isCollapsed=collapsed[room.id];return <RoomAccordion key={room.id} room={room} subtotal={subtotal} collapsed={isCollapsed} setCollapsed={()=>setCollapsed((current)=>({...current,[room.id]:!isCollapsed}))} locked={locked} activeTaxRate={activeTaxRate} quote={quote} updateQuote={updateQuote} updateQuoteItem={updateQuoteItem} addQuoteItem={addQuoteItem} duplicateRoom={()=>duplicateRoom(room)} removeRoom={()=>removeRoom(room)}/>})}</div></section>;
+}
+
+function RoomAccordion({ room, subtotal, collapsed, setCollapsed, locked, activeTaxRate, quote, updateQuote, updateQuoteItem, addQuoteItem, duplicateRoom, removeRoom }) {
+  const rename=(value)=>{const ids=new Set(room.items.map((item)=>item.itemId));updateQuote({items:quote.items.map((item)=>ids.has(item.itemId)?{...item,roomName:value}:item)})};
+  const addItem=()=>addQuoteItem(null,{roomName:room.roomName,roomId:room.items[0]?.roomId||''},true);
+  return <section className={`room-accordion ${collapsed?'collapsed':''}`}><header><button onClick={setCollapsed} aria-label={collapsed?'Expand room':'Collapse room'}><ChevronRight size={15}/></button><input value={room.roomName} placeholder="Name this room" disabled={locked} onChange={(e)=>rename(e.target.value)}/><span>{room.items.length} items</span><PriceDisplay value={subtotal} small/>{!locked&&<div><button className="room-add-item" onClick={addItem}><Plus size={14}/><span>Add item</span></button><button onClick={duplicateRoom} aria-label="Duplicate room"><Copy size={14}/></button><button onClick={removeRoom} aria-label="Delete room"><Trash2 size={14}/></button></div>}</header>{!collapsed&&<div><div className="estimate-columns"><span>Description</span><span>Category</span><span>Qty</span><span>Unit</span><span>Unit price</span><span>Markup</span><span>Tax</span><span>Total</span><span/></div>{room.items.map((item)=>{const itemTotal=calculateQuoteItem(item);return <div className="estimate-row" key={item.itemId}><input className="description" placeholder="Describe the work or material" value={item.name} disabled={locked} onChange={(e)=>updateQuoteItem(item.itemId,{name:e.target.value})}/><select value={item.category} disabled={locked} onChange={(e)=>updateQuoteItem(item.itemId,{category:e.target.value})}>{['Labor','Material','Equipment','Subcontractor','Other'].map((value)=><option key={value}>{value}</option>)}</select><input type="number" value={item.quantity} disabled={locked} onChange={(e)=>updateQuoteItem(item.itemId,{quantity:e.target.value})}/><select value={item.unit||'each'} disabled={locked} onChange={(e)=>updateQuoteItem(item.itemId,{unit:e.target.value})}>{item.unit&&!QUOTE_UNITS.includes(item.unit)&&<option value={item.unit}>{item.unit}</option>}{QUOTE_UNITS.map((unit)=><option key={unit} value={unit}>{unit}</option>)}</select><input type="number" value={item.pricePerUnit} disabled={locked} onChange={(e)=>updateQuoteItem(item.itemId,{pricePerUnit:e.target.value})}/><input type="number" value={item.markupRate} disabled={locked} onChange={(e)=>updateQuoteItem(item.itemId,{markupRate:e.target.value})}/><span>{activeTaxRate}%</span><PriceDisplay value={itemTotal.total} small/>{!locked?<button onClick={()=>updateQuote({items:quote.items.filter((candidate)=>candidate.itemId!==item.itemId)})}><Trash2 size={14}/></button>:<span/>}</div>})}<footer><button className="text-button" onClick={addItem}><Plus size={14}/> Add another item to {room.roomName||'room'}</button><span>Room subtotal <PriceDisplay value={subtotal} small/></span></footer></div>}</section>;
+}
+
+function SummarySidebar({ totals, taxRate, printQuote, approveQuote, generateSchedule, onEmail }) { const margin=totals.taxableAmount?totals.markup/totals.taxableAmount*100:0;return <aside className="quote-summary-sidebar"><span>Quote summary</span><h2>Total</h2><PriceDisplay value={totals.total}/><div className="summary-lines"><div><span>Subtotal</span><b>{formatMoney(totals.subtotal)}</b></div><div><span>Markup</span><b>{formatMoney(totals.markup)}</b></div><div><span>Discount</span><b>{formatMoney(0)}</b></div><div><span>Tax ({taxRate}%)</span><b>{formatMoney(totals.tax)}</b></div><div><span>Profit</span><b>{formatMoney(totals.markup)}</b></div><div><span>Margin</span><b>{margin.toFixed(1)}%</b></div></div><div className="summary-actions"><button className="small-button" onClick={printQuote}><Eye size={15}/> Preview PDF</button><button className="small-button" onClick={onEmail}><Mail size={15}/> Email</button><button className="primary-button" onClick={approveQuote}>Approve quote</button><button className="small-button" onClick={generateSchedule}><CalendarDays size={15}/> Schedule</button><button className="text-button" onClick={printQuote}><Download size={15}/> Download PDF</button></div></aside>; }
+function EmailCard(props) { return <section className="premium-email-card"><div className="communication-heading"><div><span>Communication</span><h2>Send this quote</h2></div><Mail size={18}/></div><EmailQuotePanel {...props}/></section>; }
+function EmailDialog({ close, ...emailProps }) { useEffect(()=>{const handler=(event)=>{if(event.key==='Escape')close()};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler)},[close]);return <div className="email-dialog-backdrop" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)close()}}><section className="email-dialog" role="dialog" aria-modal="true" aria-label="Send quote"><button className="email-dialog-close" onClick={close} aria-label="Close email dialog"><X size={18}/></button><EmailCard {...emailProps}/></section></div>; }
 
 function SchedulePage({ state, setState, setSelectedQuoteId, setActivePage, updateTask, generateSchedule }) {
   return <ScheduleWorkspace state={state} setState={setState} setSelectedQuoteId={setSelectedQuoteId} setActivePage={setActivePage} updateTask={updateTask} generateSchedule={generateSchedule} />;
